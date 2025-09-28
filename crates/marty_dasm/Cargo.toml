@@ -1,0 +1,18 @@
+[package]
+name = "marty_dasm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+num-traits.workspace = true
+
+[dev-dependencies]
+marty_fuzzer = { path = "../marty_fuzzer" }
+colored = "3"
+iced-x86 = { version = "1.21", default-features = false, features = ["std", "encoder", "decoder", "op_code_info", "nasm", "instr_info", "serde"] }
+rand = "0.9"
+rand_distr = "0.5"
+log = "0.4"
+env_logger = "0.11"
+serde.workspace = true
+csv.workspace = true

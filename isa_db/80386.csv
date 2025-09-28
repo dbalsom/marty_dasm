@@ -1,0 +1,504 @@
+op,g,ex,rm,ud,pf,66,67,fc,fpu,pm,uc,fb,w,d,sr,ar,nea,io,flds,mc,mnemonic,dw_mnemonic,alt_names,lck,rep,so,reg,m,copt1,copt2,copt3,gop1,gop2,gop3,f_tested,f_mod,f_def,f_undef,f_values,exceptions,description
+00,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,ADD,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..szapc,,,,Add
+01,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,ADD,,,1,0,1,1,1,r/m16/32,r16/32,,Ev,Gv,,,o..szapc,o..szapc,,,,Add
+02,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,ADD,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..szapc,,,,Add
+03,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,ADD,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..szapc,,,,Add
+04,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,ADD,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..szapc,,,,Add
+05,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,ADD,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..szapc,,,,Add
+06,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,sr,,PUSH,,,0,0,0,0,0,,,,ES,,,,,,,,,Push ES register
+07,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,sr,,POP,,,0,0,0,0,0,,,,ES,,,,,,,,,Pop ES register
+08,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,OR,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+09,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,OR,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+0A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,OR,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+0B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,OR,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+0C,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,OR,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+0D,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,OR,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+0E,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,sR,,PUSH,,,0,0,0,0,0,,,,CS,,,,,,,,,Push CS register
+10,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,ADC,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,.......c,o..szapc,o..szapc,,,,
+11,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,ADC,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,.......c,o..szapc,o..szapc,,,,Add with carry flag
+12,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,ADC,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,.......c,o..szapc,o..szapc,,,,Add with carry flag
+13,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,ADC,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,.......c,o..szapc,o..szapc,,,,Add with carry flag
+14,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,ADC,,,0,0,0,0,0,AL,imm8,,AL,Ib,,.......c,o..szapc,o..szapc,,,,Add with carry flag
+15,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,ADC,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,.......c,o..szapc,o..szapc,,,,Add with carry flag
+16,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,Sr,,PUSH,,,0,0,0,0,0,,,,SS,,,,,,,,,Push SS Register
+17,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,Sr,,POP,,,0,0,0,0,0,,,,SS,,,,,,,,,Pop SS Register
+18,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,SBB,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+19,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,SBB,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+1A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,SBB,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+1B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,SBB,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+1C,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,SBB,,,0,0,0,0,0,AL,imm8,,AL,Ib,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+1D,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,SBB,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+1E,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,SR,,PUSH,,,0,0,0,0,0,,,,DS,,,,,,,,,Push DS register
+1F,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,SR,,POP,,,0,0,0,0,0,,,,DS,,,,,,,,,Pop DS register
+20,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,AND,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+21,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,AND,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+22,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,AND,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+23,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,AND,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+24,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,AND,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+25,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,AND,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+26,,,,0,1,,,0,0,0,1,0,0,0,0,0,1,0,,,ES,,,0,0,0,0,0,,,,ES,,,,,,,,,ES segment override prefix
+27,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,,,DAA,,,0,0,0,0,0,,,,AL,,,.....a.c,o..szapc,...szapc,o.......,,,Decimal Adjust AL after Addition
+28,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,SUB,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..szapc,,,,Subtract
+29,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,SUB,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..szapc,o..szapc,,,,Subtract
+2A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,SUB,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..szapc,,,,Subtract
+2B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,SUB,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..szapc,,,,Subtract
+2C,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,SUB,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..szapc,,,,Subtract
+2D,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,SUB,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..szapc,,,,Subtract
+2E,,,,0,1,,,0,0,0,1,0,0,0,0,0,1,0,,,CS,,,0,0,0,0,0,,,,CS,,,,,,,,,CS segment override prefix
+2F,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,,,DAS,,,0,0,0,0,0,,,,AL,,,.....a.c,o..szapc,...szapc,o.......,,,Decimal Adjust AL after Subtraction
+30,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,XOR,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+31,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,XOR,,,1,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+32,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,XOR,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+33,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,XOR,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+34,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,XOR,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+35,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,XOR,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+36,,,,0,1,,,0,0,0,1,0,0,0,0,0,1,0,,,SS,,,0,0,0,0,0,,,,SS,,,,,,,,,SS segment override prefix
+37,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,,,AAA,,,0,0,0,0,0,,,,AL,AH,,.....a..,o..szapc,.....a.c,o..sz.p.,,,ASCII Adjust After Addition
+38,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,CMP,,,0,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..szapc,,,,Compare Two Operands
+39,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,CMP,,,0,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..szapc,o..szapc,,,,Compare Two Operands
+3A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,CMP,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..szapc,,,,Compare Two Operands
+3B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,CMP,,,0,0,1,1,1,r16/32,r/m16/32,,Gv,Ev,,,o..szapc,o..szapc,,,,Compare Two Operands
+3C,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,CMP,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..szapc,o..szapc,,,,Compare Two Operands
+3D,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,W,,CMP,,,0,0,0,0,0,AX,imm16/32,,eAX,Iv,,,o..szapc,o..szapc,,,,Compare Two Operands
+3E,,,,0,1,,,0,0,0,1,0,0,0,0,0,1,0,,,DS,,,0,0,0,0,0,,,,DS,,,,,,,,,DS segment override prefix
+3F,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,,,AAS,,,0,0,0,0,0,,,,AL,AH,,.....a..,o..szapc,.....a.c,o..sz.p.,,,ASCII Adjust AL After Subtraction
+40,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,AX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment AX by 1
+41,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,CX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment CX by 1
+42,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,DX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment DX by 1
+43,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,BX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment BX by 1
+44,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,SP,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment SP by 1
+45,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,BP,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment BP by 1
+46,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,SI,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment SI by 1
+47,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,INC,,,0,0,0,0,0,DI,,,Zv,,,,o..szap.,o..szap.,,o.......,,Increment DI by 1
+48,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,AX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement AX by 1
+49,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,CX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement CX by 1
+4A,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,DX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement DX by 1
+4B,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,BX,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement BX by 1
+4C,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,SP,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement SP by 1
+4D,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,BP,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement BP by 1
+4E,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,SI,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement SI by 1
+4F,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,DEC,,,0,0,0,0,0,DI,,,Zv,,,,o..szap.,o..szap.,,o.......,,Decrement DI by 1
+50,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push AX onto the Stack
+51,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push CX onto the Stack
+52,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push DX onto the stack
+53,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push BX onto the stack
+54,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push SP onto the stack
+55,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push BP onto the stack
+56,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push SI onto the stack
+57,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,PUSH,,,0,0,0,0,0,,,,Zv,,,,,,,,,Push DI onto the stack
+58,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to AX
+59,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to CX
+5A,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to DX
+5B,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to BX
+5C,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to SP
+5D,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to BP
+5E,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to SI
+5F,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,r,,POP,,,0,0,0,0,0,,,,Zv,,,,,,,,,Pop Value from the Stack to DI
+60,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,PUSHA,PUSHAD,,0,0,0,0,0,,,,,,,,,,,,,Push All General-Purpose Registers
+61,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,POPA,POPAD,,0,0,0,0,0,,,,,,,,,,,,,Pop All General-Purpose Registers
+62,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BOUND,,,0,0,1,0,1,r16/32,m16/32&16/32,Flags,,,,,..i.....,..i.....,,..i.....,,Check Array Index Against Bounds
+63,,,,0,0,1,1,0,0,0,,,,,,,,0,,,ARPL,,,0,0,1,1,1,r/m16,r16,,,,,,....z...,....z...,,,6,Adjust RPL Field of Segment Selector
+64,,,,0,1,0,0,0,0,0,,,,,,,,0,,,,,,0,0,1,1,1,,,,,,,,,,,,,FS segment override prefix
+65,,,,0,1,0,0,0,0,0,,,,,,,,0,,,,,,0,0,1,1,1,,,,,,,,,,,,,GS segment override prefix
+66,,,,0,1,0,0,0,0,0,,,,,,,,0,,,,,,0,0,1,1,1,,,,,,,,,,,,,Operand-size override prefix
+67,,,,0,1,0,0,0,0,0,,,,,,,,0,,,,,,0,0,1,1,1,,,,,,,,,,,,,Address-size override prefix
+68,,,,0,0,1,0,0,0,0,,,,,,,,0,,,PUSH,,,0,0,0,0,0,imm16,,,,,,,,,,,,Push Word Onto the Stack
+69,,,,0,0,1,1,0,0,0,,,,,,,,0,,,IMUL,,,0,0,1,1,1,r16,r/m16,imm16,,,,,o..szapc,,...szap.,.....A..,,Signed Multiply
+6A,,,,0,0,1,0,0,0,0,,,,,,,,0,,,PUSH,,,0,0,0,0,0,imm8,,,,,,,,,,,,Push Sign-extended Byte as Word Onto the Stack
+6B,,,,0,0,1,1,0,0,0,,,,,,,,0,,,IMUL,,,0,0,1,1,1,r16,r/m16,imm8,,,,,o..szapc,,...szap.,.....A..,,Signed Multiply
+6C,,,,0,0,0,1,0,0,0,0,0,1,0,0,0,1,1,,,INSB,,INS,0,1,1,1,1,m8,DX,,,,,,,,,,,Input from Port to String
+6D,,,,0,0,1,1,0,0,0,0,0,1,0,0,0,1,1,,,INSW,INSD,,0,1,1,1,1,m16/32,DX,,,,,,,,,,,Input from Port to String
+6E,,,,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1,,,OUTSB,,OUTS,0,1,1,1,1,DX,m8,,,,,,,,,,,Output String to Port
+6F,,,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,1,,,OUTSW,OUTSD,,0,1,1,1,1,DX,m16,,,,,,,,,,,Output String to Port
+70,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tttn,,JO,,,0,0,0,0,0,rel8,,,Jbs,,,o.......,,,,,,Jump short if overflow (OF=1)
+71,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tttN,,JNO,,,0,0,0,0,0,rel8,,,Jbs,,,o.......,,,,,,Jump short if not overflow (OF=0)
+72,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,ttTn,,JB,,"JNAE,JC",0,0,0,0,0,rel8,,,Jbs,,,.......c,,,,,,Jump short if below/not above or equal/carry (CF=1)
+73,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,ttTN,,JNB,,"JAE,JNC",0,0,0,0,0,rel8,,,Jbs,,,.......c,,,,,,Jump short if not below/above or equal/not carry (CF=0)
+74,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tTtn,,JZ,,JE,0,0,0,0,0,rel8,,,Jbs,,,....z...,,,,,,Jump short if zero/equal (ZF=1)
+75,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tTtN,,JNZ,,JNE,0,0,0,0,0,rel8,,,Jbs,,,....z...,,,,,,Jump short if not zero/not equal (ZF=0)
+76,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tTTn,,JBE,,JNA,0,0,0,0,0,rel8,,,Jbs,,,....z..c,,,,,,Jump short if below or equal/not above (CF=1 OR ZF=1)
+77,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,tTTN,,JNBE,,JA,0,0,0,0,0,rel8,,,Jbs,,,....z..c,,,,,,Jump short if not below or equal/above (CF=0 AND ZF=0)
+78,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,Tttn,,JS,,,0,0,0,0,0,rel8,,,Jbs,,,...s....,,,,,,Jump short if sign (SF=1)
+79,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TttN,,JNS,,,0,0,0,0,0,rel8,,,Jbs,,,...s....,,,,,,Jump short if not sign (SF=0)
+7A,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TtTn,,JP,,JPE,0,0,0,0,0,rel8,,,Jbs,,,......p.,,,,,,Jump short if parity/parity even (PF=1)
+7B,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TtTN,,JNP,,JPO,0,0,0,0,0,rel8,,,Jbs,,,......p.,,,,,,Jump short if not parity/parity odd (PF=0)
+7C,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TTtn,,JL,,JNGE,0,0,0,0,0,rel8,,,Jbs,,,o..s....,,,,,,Jump short if less/not greater (SF!=OF)
+7D,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TTtN,,JNL,,JGE,0,0,0,0,0,rel8,,,Jbs,,,o..s....,,,,,,Jump short if not less/greater or equal (SF=OF)
+7E,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TTTn,,JLE,,JNGE,0,0,0,0,0,rel8,,,Jbs,,,o..sz...,,,,,,Jump short if less or equal/not greater ((ZF=1) OR (SF!=OF))
+7F,,,,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,TTTN,,JNLE,,JG,0,0,0,0,0,rel8,,,Jbs,,,o..sz...,,,,,,Jump short if not less nor equal/greater ((ZF=0) AND (SF=OF))
+80,1,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ADD,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Add
+80,1,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,OR,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+80,1,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ADC,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,.......c,o..szapc,o..szapc,,,,Add with Carry
+80,1,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SBB,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+80,1,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,AND,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+80,1,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SUB,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Subtract
+80,1,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,XOR,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+80,1,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,CMP,,,0,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Compare Two Operands
+81,1,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ADD,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..szapc,,,,Add
+81,1,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,OR,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+81,1,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ADC,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,.......c,o..szapc,o..szapc,,,,Add with Carry
+81,1,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SBB,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+81,1,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,AND,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+81,1,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SUB,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..szapc,,,,Subtract
+81,1,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,XOR,,,1,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+81,1,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,CMP,,,0,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,o..szapc,o..szapc,,,,Compare Two Operands
+82,1,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ADD,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Add
+82,1,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,OR,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Inclusive OR
+82,1,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ADC,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,.......c,o..szapc,o..szapc,,,,Add with Carry
+82,1,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SBB,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+82,1,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,AND,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical AND
+82,1,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SUB,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Subtract
+82,1,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,XOR,,,1,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..sz.pc,.....a..,o....a.c,,Logical Exclusive OR
+82,1,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,CMP,,,0,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..szapc,o..szapc,,,,Compare Two Operands
+83,1,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,ADD,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,,,,Add
+83,1,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,OR,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,.....a..,o....a.c,,Logical Inclusive OR
+83,1,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,ADC,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,.......c,o..szapc,o..szapc,,,,Add with Carry
+83,1,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,SBB,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,.......c,o..szapc,o..szapc,,,,Subtract with borrow
+83,1,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,AND,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,.....a..,o....a.c,,Logical AND
+83,1,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,SUB,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,,,,Subtract
+83,1,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,XOR,,,1,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,.....a..,o....a.c,,Logical Exclusive OR
+83,1,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,SW,,CMP,,,0,0,1,1,1,r/m16,imm_i8,,Evqp,Ibs,,,o..szapc,o..szapc,,,,Compare Two Operands
+84,,,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,dw,,TEST,,,0,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..sz.pc,o..sz.pc,.....a..,o....a.c,,Logical Compare
+85,,,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,dW,,TEST,,,0,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,o..sz.pc,o..sz.pc,.....a..,o....a.c,,Logical Compare
+86,,,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,Dw,,XCHG,,,1,0,1,1,1,r8,r/m8,,Gb,Eb,,,,,,,,Exchange Register/Memory with Register
+87,,,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,DW,,XCHG,,,1,0,1,1,1,r16/32,r/m16/32,,Gvqp,Evqp,,,,,,,,Exchange Register/Memory with Register
+88,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,1,0,dw,,MOV,,,0,0,1,1,1,r/m8,r8,,Eb,Gb,,,,,,,,Move
+89,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,1,0,dW,,MOV,,,0,0,1,1,1,r/m16/32,r16/32,,Evqp,Gvqp,,,,,,,,Move
+8A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,MOV,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,,,,,,"Move, (Reverse direction of 0x88)"
+8B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,MOV,,,0,0,1,1,1,r16/32,r/m16/32,,Gvqp,Evqp,,,,,,,,"Move, (Reverse direction of 0x89)"
+8C,,,,0,0,1,1,0,0,0,1,0,0,1,1,0,1,0,d,,MOV,,,0,0,1,1,1,r/m16,Sreg,,Mw,Sw,,,,,,,,Move *First operand is Mw or Rvqp
+8D,,,,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,,,LEA,,,0,0,1,1,1,,,,Gvqp,M,,,,,,,,Load Effective Address
+8E,,,,0,0,1,1,0,0,0,1,0,0,1,1,0,0,0,D,,MOV,,,0,0,1,1,1,Sreg,r/m16,,Sw,Ew,,,,,,,,Move
+8F,,0,,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,W,,POP,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Pop a Value from the Stack
+90,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,NOP,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register AX with Register AX (NOP)
+91,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register CX with Register AX
+92,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register DX with Register AX
+93,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register BX with Register AX
+94,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register SP with Register AX
+95,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register BP with Register AX
+96,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register SI with Register AX
+97,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register DI with Register AX
+98,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,,,CBW,CWDE,,0,0,0,0,0,eAX,AL/AX,,eAX,AL/AX,,,,,,,,Convert Byte to Word
+99,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,,,CWD,CDQ,,0,0,0,0,0,eDX,eAX,,eDX,eAX,,,,,,,,Convert Word to Doubleword
+9A,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,1,0,,,CALL,,,0,0,0,0,0,ptr16:16/32,,,Ap,,,,,,,,,Call Procedure
+9B,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,WAIT,,,0,0,0,0,0,,,,,,,,,,,,,Wait
+9C,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,,,PUSHF,PUSHFD,,0,0,0,0,0,,,,Fwo,,,,,,,,,Push FLAGS Register onto the Stack
+9D,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,,,POPF,POPFD,,0,0,0,0,0,,,,Fwo,,,,odiszapc,odiszapc,,,,Pop Stack into FLAGS Register
+9E,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,SAHF,,,0,0,0,0,0,,,,AH,,,,...szapc,...szapc,,,,Store AH into Flags
+9F,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,LAHF,,,0,0,0,0,0,,,,AH,,,...szapc,,,,,,Load Status Flags into AH Register
+A0,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,MOV,,,0,0,1,0,0,AL,offset8,,AL,Ob,,,,,,,,Move *Only instructions to use Offset operand type
+A1,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,MOV,,,0,0,1,0,0,AX,offset16/32,,AX,Ovqp,,,,,,,,Move *Only instructions to use Offset operand type
+A2,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,MOV,,,0,0,1,0,0,offset8,AL,,Ob,AL,,,,,,,,Move *Only instructions to use Offset operand type
+A3,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,MOV,,,0,0,1,0,0,offset16/32,AX,,Ovqp,AX,,,,,,,,Move *Only instructions to use Offset operand type
+A4,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,MOVSB,,,0,1,1,0,0,m8,,,Yb,Xb,,.d......,,,,,,Move Data from String to String
+A5,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,MOVSW,MOVSD,,0,1,1,0,0,,,,Ywo,Xwo,,.d......,,,,,,Move Data from String to String
+A6,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,CMPSB,,,0,1,1,0,0,,,,Yb,Xb,,.d......,o..szapc,o..szapc,,,,Compare String Operands
+A7,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,CMPSW,CMPSD,,0,1,1,0,0,,,,Ywo,Xwo,,.d......,o..szapc,o..szapc,,,,Compare String Operands
+A8,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,0,w,,TEST,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,o..sz.pc,o..sz.pc,.....a..,o....a.c,,Logical Compare
+A9,,,,0,0,,0,0,0,0,1,0,1,0,0,1,1,0,W,,TEST,,,0,0,0,0,0,eAX,imm16/32,,AX,Ivds,,,o..sz.pc,o..sz.pc,.....a..,o....a.c,,Logical Compare
+AA,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,STOSB,,,0,1,0,0,0,,,,Yb,AL,,.d......,,,,,,Store String
+AB,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,STOSW,STOSD,,0,1,0,0,0,,,,Ywo,AX,,.d......,,,,,,Store String
+AC,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,LODSB,,,0,1,1,0,0,,,,AL,Xb,,.d......,,,,,,Load String
+AD,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,LODSW,LODSD,,0,1,1,0,0,,,,AX,Xwo,,.d......,,,,,,Load String
+AE,,,,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,w,,SCASB,,,0,1,0,0,0,,,,Yb,AL,,.d......,o..szapc,o..szapc,,,,Scan String
+AF,,,,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,W,,SCASW,SCASD,,0,1,0,0,0,,,,Ywo,AX,,.d......,o..szapc,o..szapc,,,,Scan String
+B0,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B1,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B2,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B3,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B4,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B5,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B6,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B7,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r8,imm8,,Zb,Ib,,,,,,,,Move
+B8,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+B9,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BA,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BB,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BC,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BD,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BE,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+BF,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,MOV,,,0,0,0,0,0,r16/32,imm16/32,,Zvqp,Ivqp,,,,,,,,Move
+C0,2,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,ROL,,,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o.......,,,Rotate Left
+C0,2,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,ROR,,,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o.......,,,Rotate Right
+C0,2,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,RCL,,,0,0,1,1,1,r/m8,imm8,,,,,.......c,o..szapc,,o.......,,,Rotate Through Carry Left
+C0,2,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,RCR,,,0,0,1,1,1,r/m8,imm8,,,,,.......c,o..szapc,,o.......,,,Rotate Through Carry Right
+C0,2,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,SHL,,SAL,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o....a.c,,,Shift Left
+C0,2,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,SHR,,,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o....a.c,,,Shift Right
+C0,2,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,SHL,,SAL,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o....a.c,,,Shift Left
+C0,2,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,,,SAR,,,0,0,1,1,1,r/m8,imm8,,,,,,o..szapc,,o....a..,,,Shift Arithmetic Right
+C1,2,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,ROL,,,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Rotate Left
+C1,2,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,ROR,,,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Rotate Right
+C1,2,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,RCL,,,0,0,1,1,1,r/m16/32,imm8,,,,,.......c,o..szapc,,,,,Rotate Through Carry Left
+C1,2,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,RCR,,,0,0,1,1,1,r/m16/32,imm8,,,,,.......c,o..szapc,,,,,Rotate Through Carry Right
+C1,2,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,SHL,,SAL,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Shift Left
+C1,2,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,SHR,,,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Shift Right
+C1,2,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,SHL,,SAL,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Shift Left
+C1,2,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,,,SAR,,,0,0,1,1,1,r/m16/32,imm8,,,,,,o..szapc,,,,,Shift Arithmetic Right
+C2,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,RET,,,0,0,0,0,0,imm16,,,Iw,,,,,,,,,Return from procedure
+C3,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,RET,,,0,0,0,0,0,,,,,,,,,,,,,Return from procedure
+C4,,,,0,0,1,1,0,0,0,1,0,0,0,0,0,0,0,,,LES,,,0,0,1,0,1,es,reg16/32,m16:16/32,ES,Gv,Mp,,,,,,,Load Far Pointer
+C5,,,,0,0,1,1,0,0,0,1,0,0,0,0,0,0,0,,,LDS,,,0,0,1,0,1,ds,reg16/32,m16:16/32,DS,Gv,Mp,,,,,,,Load Far Pointer
+C6,,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,w,,MOV,,,0,0,1,1,1,r/m8,imm8,,Eb,Ib,,,,,,,,Move
+C7,,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,1,0,W,,MOV,,,0,0,1,1,1,r/m16/32,imm16/32,,Evqp,Ivds,,,,,,,,Move
+C8,,,,0,0,1,0,0,0,0,,,,,,,,0,,,ENTER,,,0,0,1,1,1,BP,imm16,imm8,,,,,,,,,,Make Stack Frame for Procedure Parameters
+C9,,,,0,0,1,0,0,0,0,,,,,,,,0,,,LEAVE,,,0,0,1,1,1,BP,,,,,,,,,,,,High Level Procedure Exit
+CA,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,RETF,,,0,0,0,0,0,imm16,,,Iw,,,,,,,,,Return from procedure
+CB,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,RETF,,,0,0,0,0,0,,,,,,,,,,,,,Return from procedure
+CC,,,,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,,,INT3,,,0,0,0,0,0,3,eFlags,,3,Fv,,,..i.....,..i.....,,..i.....,3,Call to Interrupt Procedure
+CD,,,,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,,,INT,,,0,0,0,0,0,imm8,eFlags,,Ib,Fv,,,..i.....,..i.....,,..i.....,*,Call to Interrupt Procedure
+CE,,,,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,,,INTO,,,0,0,0,0,0,,,,Fv,,,o.......,..i.....,..i.....,,..i.....,,Call to Interrupt Procedure
+CF,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,IRET,IRETD,,0,0,0,0,0,,,,Fwo,,,,odiszapc,,,,,Interrupt Return
+D0,2,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ROL,,,0,0,1,1,1,r/m8,,,Eb,1,,,o......c,o..szapc,,,,Rotate
+D0,2,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ROR,,,0,0,1,1,1,r/m8,,,Eb,1,,,o......c,o..szapc,,,,Rotate
+D0,2,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,RCL,,,0,0,1,1,1,r/m8,,,Eb,1,,.......c,o......c,o..szapc,,,,Rotate
+D0,2,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,RCR,,,0,0,1,1,1,r/m8,,,Eb,1,,.......c,o......c,o..szapc,,,,Rotate
+D0,2,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SHL,,SAL,0,0,1,1,1,r/m8,,,Eb,1,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D0,2,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SHR,,,0,0,1,1,1,r/m8,,,Eb,1,,,o..sz.pc,o..sz.pc,.....a..,...s.a..,,Shift
+D0,2,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SETMO,,,0,0,1,1,1,r/m8,,,Eb,1,,,o..szapc,........,o..szapc,o..SzaPc,,SETMO: Undocumented instruction
+D0,2,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SAR,,,0,0,1,1,1,r/m8,,,Eb,1,,,o..sz.pc,o..sz.pc,.....a..,o....a..,,Shift
+D1,2,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ROL,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o......c,o..szapc,,,,Rotate
+D1,2,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ROR,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o......c,o..szapc,,,,Rotate
+D1,2,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,RCL,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,.......c,o......c,o..szapc,,,,Rotate
+D1,2,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,RCR,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,.......c,o......c,o..szapc,,,,Rotate
+D1,2,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SHL,,SAL,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D1,2,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SHR,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o..sz.pc,o..sz.pc,.....a..,...s.a..,,Shift
+D1,2,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SETMO,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o..szapc,........,o..szapc,o..SzaPc,,SETMO: Undocumented instruction
+D1,2,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SAR,,,0,0,1,1,1,r/m16/32,,,Evqp,1,,,o..sz.pc,o..sz.pc,.....a..,o....a..,,Shift
+D2,2,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ROL,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o......c,o..szapc,,,,Rotate
+D2,2,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,ROR,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o......c,o..szapc,,,,Rotate
+D2,2,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,RCL,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,.......c,o......c,o..szapc,,,,Rotate
+D2,2,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,RCR,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,.......c,o......c,o..szapc,,,,Rotate
+D2,2,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SHL,,SAL,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D2,2,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SHR,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D2,2,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SETMOC,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o..szapc,........,o..szapc,,,SETMOC: Undocumented instruction
+D2,2,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,SAR,,,0,0,1,1,1,r/m8,CL reg,,Eb,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D3,2,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ROL,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o......c,o..szapc,,,,Rotate
+D3,2,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,ROR,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o......c,o..szapc,,,,Rotate
+D3,2,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,RCL,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,.......c,o......c,o..szapc,,,,Rotate
+D3,2,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,RCR,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,.......c,o......c,o..szapc,,,,Rotate
+D3,2,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SHL,,SAL,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D3,2,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SHR,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D3,2,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SETMOC,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o..szapc,........,o..szapc,,,SETMOC: Undocumented instruction
+D3,2,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,SAR,,,0,0,1,1,1,r/m16/32,CL reg,,Evqp,CL,,,o..sz.pc,o..sz.pc,.....a..,,,Shift
+D4,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,,,AAM,,,0,0,0,0,0,imm8,,,AL,AH,Ib,,o..szapc,...sz.p.,o....a.c,o....a.c,,ASCII Adjust AX After Multiply
+D5,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,,,AAD,,,0,0,0,0,0,imm8,,,AL,AH,Ib,,...sz.p.,...sz.p.,o....a.c,,,ASCII Adjust AX Before Division
+D6,,,,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,,,SALC,,,0,0,0,0,0,,,,AL,,,,,,,,,Undocumented: Set Carry flag in AL
+D7,,,,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,,,XLAT,,XLATB,0,0,0,0,0,, ,,AL,BBb,,,,,,,,Table Look-up Translation
+D8,,0,,0,0,0,0,0,1,0,,,,,,,,,,,FADD,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Add"
+D8,,1,,0,0,0,0,0,1,0,,,,,,,,,,,FMUL,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Multiply"
+D8,,2,,0,0,0,0,0,1,0,,,,,,,,,,,FCOM,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Compare Real"
+D8,,3,,0,0,0,0,0,1,0,,,,,,,,,,,FCOMP,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Compare Real and Pop"
+D8,,4,,0,0,0,0,0,1,0,,,,,,,,,,,FSUB,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Subtract"
+D8,,5,,0,0,0,0,0,1,0,,,,,,,,,,,FUSBR,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Reverse Subtract"
+D8,,6,,0,0,0,0,0,1,0,,,,,,,,,,,FDIV,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Divide"
+D8,,7,,0,0,0,0,0,1,0,,,,,,,,,,,FDIVR,,,0,0,1,1,1,ST(0),STi/m32real,,,,,,,,,,,"	Reverse Divide"
+D9,,0,,0,0,0,0,0,1,0,,,,,,,,,,,FLD,,,0,0,1,0,1,ST(0),STi/m32real,,,,,,,,,,,"	Load Floating Point Value"
+D9,,1,,0,0,0,0,0,1,0,,,,,,,,,,,FCXH,,,0,0,0,0,1,ST(0),"	STi",,,,,,,,,,,"	Exchange Register Contents"
+D9,,2,,0,0,0,0,0,1,0,,,,,,,,,,,FST,,,0,0,1,0,1,"	m32real",ST(0),,,,,,,,,,,Store Floating Point Value
+D9,,2,D0,0,0,0,0,0,1,0,,,,,,,,,,,FNOP,,,0,0,1,1,1,"	m32real",,,,,,,,,,,,No Operation
+D9,,3,,0,0,0,0,0,1,0,,,,,,,,,,,FSTP,,,0,0,1,0,1,STi/m32real,,,,,,,,,,,,Store Floating Point Value and Pop
+D9,,4,,0,0,0,0,0,1,0,,,,,,,,,,,FLDENV,,,0,0,?,0,1,m14/28,,,,,,,,,,,,Load x87 FPU Environment
+D9,,4,E0,0,0,0,0,0,1,0,,,,,,,,,,,"			FCHS",,,0,0,0,1,1,ST(0),,,,,,,,,,,,
+D9,,4,E1,0,0,0,0,0,1,0,,,,,,,,,,,FABS,,,0,0,0,1,1,ST(0),,,,,,,,,,,,
+D9,,4,E2,0,0,0,0,0,1,0,,,,,,,,,,,FTST,,,0,0,0,1,1,ST(0),,,,,,,,,,,,
+D9,,4,E3,0,0,0,0,0,1,0,,,,,,,,,,,"	FXAM",,,0,0,0,1,1,ST(0),,,,,,,,,,,,
+D9,,5,,0,0,0,0,0,1,0,,,,,,,,,,,"		FLDCW",,,0,0,?,0,1,"	m16",,,,,,,,,,,,
+D9,,5,E8,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,E9,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,EA,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,EB,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,EC,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,ED,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,5,EE,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,1,1,,,,,,,,,,,,,
+D9,,6,,0,0,0,0,0,1,0,,,,,,,,,,,FNSTENV,,FSTENV,,,,,1,,,,,,,,,,,,,
+D9,,6,F0,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,6,F1,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,6,F2,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,6,F3,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,6,F4,0,0,0,0,0,1,0,,,,,,,,,,,"		FLDCW",,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,6,F5,0,0,0,0,0,1,0,,,,,,,,,,,"		FLDCW",,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,6,F6,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,6,F7,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,7,,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,7,F0,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,7,F1,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,7,F2,0,0,0,0,0,1,0,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,
+D9,,7,F3,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,7,F4,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,7,F5,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,7,F6,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+D9,,7,F7,0,0,0,0,0,1,0,,,,,,,,,,,,,,0,0,0,0,1,,,,,,,,,,,,,
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+D9,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DA,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DB,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DC,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DD,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DE,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+DF,,,,0,0,,,0,1,0,1,0,0,0,0,0,0,0,,,ESC,,,0,0,1,1,1,,,,,,,,,,,,,FPU Instruction
+E0,,,,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,,,LOOPNE,,LOOPNZ,0,0,0,0,0,CX,rel8,,CX,Jbs,,....z...,,,,,,Decrement count; Jump short if count!=0 and ZF=0
+E1,,,,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,,,LOOPE,,LOOPZ,0,0,0,0,0,CX,rel8,,CX,Jbs,,....z...,,,,,,Decrement count; Jump short if count!=0 and ZF=1
+E2,,,,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,,,LOOP,,,0,0,0,0,0,CX,rel8,,CX,Jbs,,,,,,,,Decrement count; Jump short if count!=0
+E3,,,,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,,,JCXZ,JECXZ,,0,0,0,0,0,rel8,CX,,Jbs,CX,,,,,,,,Jump short if CX register is 0
+E4,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,1,w,,IN,,,0,0,0,0,0,AL,imm8,,AL,Ib,,,,,,,,Input from Port
+E5,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,IN,,,0,0,0,0,0,AX,imm8,,AX,Ib,,,,,,,,Input from Port
+E5,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,IN,,,0,0,0,0,0,EAX,imm8,,EAX,Ib,,,,,,,,Input from Port
+E6,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,1,w,,OUT,,,0,0,0,0,0,imm8,AL,,Ib,AL,,,,,,,,Output to Port
+E7,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,OUT,,,0,0,0,0,0,imm8,AX,,Ib,AX,,,,,,,,Output to Port
+E7,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,OUT,,,0,0,0,0,0,imm8,EAX,,Ib,EAX,,,,,,,,Output to Port
+E8,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,CALL,,,0,0,0,0,0,rel16/32,,,Jvds,,,,,,,,,Call Procedure
+E9,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,JMP,,,0,0,0,0,0,rel16/32,,,Jvds,,,,,,,,,Jump
+EA,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,JMPF,,,0,0,0,0,0,ptr16:16/32,,,Ap,,,,,,,,,Jump
+EB,,,,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,,,JMP,,,0,0,0,0,0,rel8,,,Jbs,,,,,,,,,Jump
+EC,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,1,w,,IN,,,0,0,0,0,0,AL,DX,,AL,DX,,,,,,,,Input from Port
+ED,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,IN,,,0,0,0,0,0,eAX,DX,,eAX,DX,,,,,,,,Input from Port
+EE,,,,0,0,0,0,0,0,0,1,0,1,0,0,1,1,1,w,,OUT,,,0,0,0,0,0,DX,AL,,DX,AL,,,,,,,,Output to Port
+EF,,,,0,0,1,0,0,0,0,1,0,1,0,0,1,1,1,W,,OUT,,,0,0,0,0,0,DX,eAX,,DX,eAX,,,,,,,,Output to Port
+F0,,,,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,,,LOCK,,,0,0,0,0,0,,,,,,,,,,,,,Assert LOCK# Signal Prefix
+F1,,,,0,0,0,0,1,0,0,,,,,,,1,0,,,INT1,,ICEBP,0,0,1,1,1,,,,,,,,,,,,1,ICE Breakpoint / Int 1
+F2,,,,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,,,REPNZ,,REPNE,0,0,0,0,0,,,,CX,,,....z...,,,,,,Repeat String Operation Prefix
+F3,,,,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,,,REPZ,,REPE,0,0,0,0,0,,,,CX,,,....z...,,,,,,Repeat String Operation Prefix
+F4,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,HLT,,,0,0,0,0,0,,,,,,,,,,,,,Halt
+F5,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,CMC,,,0,0,0,0,0,,,,,,,.......c,.......c,.......c,,,,Complement Carry Flag
+F6,3,0,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,TEST,,,0,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..sz.pc,o..sz.pc,.....a..,o......c,,Logical Compare
+F6,3,1,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,TEST,,,0,0,1,1,1,r/m8,imm8,,Eb,Ib,,,o..sz.pc,o..sz.pc,.....a..,o......c,,Logical Compare
+F6,3,2,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,NOT,,,1,0,1,1,1,r/m8,,,Eb,,,,,,,,,One's Complement Negation
+F6,3,3,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,NEG,,,1,0,1,1,1,r/m8,,,Eb,,,,o..szapc,o..szapc,,,,Two's Complement Negation
+F6,3,4,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,MUL,,,0,0,1,1,1,r/m8,,,AX,AL,Eb,,o..sz.pc,o......c,...szap.,,,Unsigned Multiply
+F6,3,5,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,IMUL,,,0,0,1,1,1,r/m8,,,AX,AL,Eb,,o..sz.pc,o......c,...szap.,,,Signed Multiply
+F6,3,6,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,DIV,,,0,0,1,1,1,r/m8,,,AL,AH,AX,,o..szapc,,o..szapc,,0,Unsigned Divide
+F6,3,7,,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,w,,IDIV,,,0,0,1,1,1,r/m8,,,AL,AH,AX,,o..szapc,,o..szapc,,0,Signed Divide
+F7,3,0,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,TEST,,,0,0,1,1,1,r/m16/32,imm16,,Evqp,Ivds,,,o..sz.pc,o..sz.pc,.....a..,o......c,,Logical Compare
+F7,3,1,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,TEST,,,0,0,1,1,1,r/m16/32,imm16,,Evqp,Ivds,,,o..sz.pc,o..sz.pc,.....a..,o......c,,Logical Compare
+F7,3,2,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,NOT,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,,,,,,One's Complement Negation
+F7,3,3,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,NEG,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,o..szapc,o..szapc,,,,Two's Complement Negation
+F7,3,4,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,MUL,,,0,0,1,1,1,r/m16/32,,,DX,AX,Evqp,,o..sz.pc,o......c,...szap.,,,Unsigned Multiply
+F7,3,5,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,IMUL,,,0,0,1,1,1,r/m16/32,,,DX,AX,Evqp,,o..sz.pc,o......c,...szap.,,,Signed Multiply
+F7,3,6,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,DIV,,,0,0,1,1,1,r/m16/32,,,DX,AX,Evqp,,o..szapc,,o..szapc,,0,Unsigned Divide
+F7,3,7,,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,W,,IDIV,,,0,0,1,1,1,r/m16/32,,,DX,AX,Evqp,,o..szapc,,o..szapc,,0,Signed Divide
+F8,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,CLC,,,0,0,0,0,0,,,,,,,,.......c,.......c,,.......c,,Clear Carry Flag
+F9,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,STC,,,0,0,0,0,0,,,,,,,,.......c,.......c,,.......C,,Set Carry Flag
+FA,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,CLI,,,0,0,0,0,0,,,,,,,,..i.....,..i.....,,..i.....,,Clear Interrupt Flag
+FB,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,STI,,,0,0,0,0,0,,,,,,,,..i.....,..i.....,,..I.....,,Set Interrupt Flag
+FC,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,CLD,,,0,0,0,0,0,,,,,,,,.d......,.d......,,.d......,,Clear Direction Flag
+FD,,,,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,,,STD,,,0,0,0,0,0,,,,,,,,.d......,.d......,,.D......,,Set Direction Flag
+FE,4,0,,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,w,,INC,,,1,0,1,1,1,r/m8,,,Eb,,,,o..szap.,o..szap.,,,,Increment by 1
+FE,4,1,,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,w,,DEC,,,1,0,1,1,1,r/m8,,,Eb,,,,o..szap.,o..szap.,,,,Decrement by 1
+FE,4,2,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FE,4,3,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FE,4,4,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FE,4,5,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FE,4,6,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FE,4,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
+FF,5,0,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,INC,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,o..szap.,o..szap.,,,,Increment by 1
+FF,5,1,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,DEC,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,o..szap.,o..szap.,,,,Decrement by 1
+FF,5,2,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,CALL,,,0,0,1,0,1,r/m16/32,,,Ev,,,,,,,,,Call Procedure
+FF,5,3,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,CALLF,,,0,0,1,0,1,r/m16/32,,,Mptp,,,,,,,,,Call Procedure
+FF,5,4,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,JMP,,,0,0,1,0,1,r/m16/32,,,Ev,,,,,,,,,Jump
+FF,5,5,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,JMPF,,,0,0,1,0,1,r/m16/32,,,Mptp,,,,,,,,,Jump
+FF,5,6,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,PUSH,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Push Word onto the Stack
+FF,5,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
+0F00,6,0,,0,0,,,0,0,0,,,,,,,,0,,,SLDT,,,0,0,1,1,1,r/m16,LDTR,,,,,,,,,,,Store Local Descriptor Table Register
+0F00,6,1,,0,0,,,0,0,0,,,,,,,,0,,,STR,,,0,0,1,1,1,r/m16,TR,,,,,,,,,,,Store Task Register
+0F00,6,2,,0,0,,,0,0,0,,,,,,,,0,,,LLDT,,,0,0,1,1,1,LDTR,r/m16,,,,,,,,,,,Load Local Descriptor Table Register
+0F00,6,3,,0,0,,,0,0,0,,,,,,,,0,,,LTR,,,0,0,1,1,1,TR,r/m16,,,,,,,,,,,Load Task Register
+0F00,6,4,,0,0,,,0,0,0,,,,,,,,0,,,VERR,,,0,0,1,1,1,r/m16,,,,,,,....z...,,,,,Verify a Segment for Reading
+0F00,6,5,,0,0,,,0,0,0,,,,,,,,0,,,VERW,,,0,0,1,1,1,r/m16,,,,,,,....z...,,,,,Verify a Segment for Writing
+0F00,6,6,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
+0F00,6,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
+0F01,7,0,,0,0,,,0,0,1,,,,,,,,0,,,SGDT,,,0,0,1,1,1,m,GDTR,,,,,,,,,,,Store Global Descriptor Table Register
+0F01,7,1,,0,0,,,0,0,0,,,,,,,,0,,,SIDT,,,0,0,1,1,1,m,IDTR,,,,,,,,,,,Store Interrupt Descriptor Table Register
+0F01,7,2,,0,0,,,0,0,0,,,,,,,,0,,,LGDT,,,0,0,1,1,1,GDTR,m,,,,,,,,,,,Load Global Descriptor Table Register
+0F01,7,3,,0,0,,,0,0,0,,,,,,,,0,,,LIDT,,,0,0,1,1,1,IDTR,m,,,,,,,,,,,Load Interrupt Descriptor Table Register
+0F01,7,4,,0,0,,,0,0,0,,,,,,,,0,,,SMSW,,,0,0,1,1,1,r/m16,MSW,,,,,,,,,,,Store Machine Status Word
+0F01,7,5,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,,,,,,,,,,,,,,,6,Undefined
+0F01,7,6,,0,0,,,0,0,0,,,,,,,,0,,,LMSW,,,0,0,1,1,1,MSW,r/m16,,,,,,,,,,,Load Machine Status Word
+0F01,7,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,,,,,,,,,,,,,,,6,Undefined
+0F02,,,,0,0,1,1,0,0,1,,,,,,,,0,,,LAR,,,0,0,1,1,1,r16,r/m16,,,,,,,,,,,Load Access Rights Byte
+0F03,,,,0,0,1,1,0,0,1,,,,,,,,0,,,LSL,,,0,0,1,1,1,r16,r/m16,,,,,,,,,,,Load Segment Limit
+0F04,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,,
+0F05,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Load All Registers 286 (Undefined on 386)
+0F06,,,,0,0,0,0,0,0,0,,,,,,,,0,,,CLTS,,,0,0,0,0,0,CR0,,,,,,,,,,,,Clear Task-Switched Flag in CR0
+0F07,,,,0,0,0,1,1,0,0,,,,,,,,0,,,LOADALL,,,0,0,0,0,0,,,,,,,,,,,,,Load All Registers (386)
+0F20,,,,0,0,0,0,0,0,0,,,,,,,,0,,,MOV,,,0,0,0,0,0,r32,CRn,,,,,,,,,,,Move to/from Control Registers
+0F21,,,,0,0,0,0,0,0,0,,,,,,,,0,,,MOV,,,0,0,0,0,0,r32,DRn,,,,,,,,,,,Move to/from Debug Registers
+0F22,,,,0,0,0,0,0,0,0,,,,,,,,0,,,MOV,,,0,0,0,0,0,CRn,r32,,,,,,,,,,,Move to/from Control Registers
+0F23,,,,0,0,0,0,0,0,0,,,,,,,,0,,,MOV,,,0,0,0,0,0,DRn,r32,,,,,,,,,,,Move to/from Debug Registers
+0F80,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JO,,,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if overflow (OF=1)
+0F81,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNO,,,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not overflow (OF=0)
+0F82,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JB,,"JNAE,JC",0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if below/not above or equal/carry (CF=1)
+0F83,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNB,,"JAE,JNC",0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not below/above or equal/not carry (CF=0)
+0F84,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JZ,,JE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if zero/equal (ZF=1)
+0F85,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNZ,,JNE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not zero/not equal (ZF=0)
+0F86,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JBE,,JNA,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if below or equal/not above (CF=1 OR ZF=1)
+0F87,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNBE,,JA,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not below or equal/above (CF=0 AND ZF=0)
+0F88,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JS,,,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if sign (SF=1)
+0F89,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNS,,,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not sign (SF=0)
+0F8A,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JP,,JPE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if parity/parity even (PF=1)
+0F8B,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNP,,JPO,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not parity/parity odd (PF=0)
+0F8C,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JL,,JNGE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if less/not greater (SF!=OF)
+0F8D,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNL,,JGE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not less/greater or equal (SF=OF)
+0F8E,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JLE,,JNGE,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if less or equal/not greater ((ZF=1) OR (SF!=OF))
+0F8F,,,,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,,,JNLE,,JG,0,0,0,0,0,rel16/32,,,,,,,,,,,,Jump short if not less nor equal/greater ((ZF=0) AND (SF=OF))
+0F90,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETO,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - overflow (OF=1)
+0F91,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNO,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not overflow (OF=0)
+0F92,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETB,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - below/not above or equal/carry (CF=1)
+0F93,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNB,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not below/above or equal/not carry (CF=0)
+0F94,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETZ,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - zero/equal (ZF=1)
+0F95,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNZ,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not zero/not equal (ZF=0)
+0F96,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETBE,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - below or equal/not above (CF=1 OR ZF=1)
+0F97,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNBE,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not below or equal/above (CF=0 AND ZF=0)
+0F98,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETS,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - sign (SF=1)
+0F99,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNS,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not sign (SF=0)
+0F9A,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETP,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - parity/parity even (PF=1)
+0F9B,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNP,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not parity/parity odd (PF=0)
+0F9C,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETL,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - less/not greater (SF!=OF)
+0F9D,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNL,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not less/greater or equal (SF=OF)
+0F9E,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETLE,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - less or equal/not greater ((ZF=1) OR (SF!=OF))
+0F9F,,,,0,0,0,1,0,0,0,,,,,,,1,0,,,SETNLE,,,0,0,1,1,1,r/m8,,,,,,,,,,,,Set Byte on Condition - not less nor equal/greater ((ZF=0) AND (SF=OF))
+0FA0,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,PUSH,,,0,0,0,0,0,FS,,,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+0FA1,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,POP,,,0,0,0,0,0,FS,,,,,,,,,,,,Pop a Value from the Stack
+0FA2,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FA3,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BT,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test
+0FA4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Double Precision Shift Left
+0FA5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,CL,,,,,,,,,,,Double Precision Shift Left
+0FA6,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FA7,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FA8,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,PUSH,,,0,0,0,0,0,GS,,,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+0FA9,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,POP,,,0,0,0,0,0,GS,,,,,,,,,,,,Pop a Value from the Stack
+0FAA,,,,0,0,0,0,1,0,0,,,,,,,1,0,,,RSM,,,0,0,0,0,0,,,,,,,,,,,,,Resume from System Management Mode
+0FAB,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BTS,,,1,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test and Set
+0FAC,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Double Precision Shift Right
+0FAD,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,CL,,,,,,,,,,,Double Precision Shift Right
+0FAE,,,,1,0,0,,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FAF,,,,0,0,1,1,0,0,0,,,,,,,,0,,,IMUL,,,0,0,1,1,1,,,,,,,,,,,,,Signed Multiply
+0FB0,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FB1,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FB2,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LSS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
+0FB3,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BTR,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test and Reset
+0FB4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LFS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
+0FB5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LGS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
+0FB6,,,,0,0,1,1,0,0,0,,,,,,,1,0,,,MOVZX,,,0,0,1,1,1,r16/32,r/m8,,,,,,,,,,,Move with Zero-Extend
+0FB7,,,,0,0,1,1,0,0,0,,,,,,,1,0,,,MOVZX,,,0,0,1,1,1,r16/32,r/m16,,,,,,,,,,,Move with Zero-Extend
+0FB8,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FB9,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FBA,8,0,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FBA,8,1,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FBA,8,2,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FBA,8,3,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
+0FBA,8,4,,0,0,1,1,0,0,0,,,,,,,0,0,,,BT,,,0,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Bit Test
+0FBA,8,5,,0,0,1,1,0,0,0,,,,,,,,0,,,BTS,,,1,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Bit Test and Set
+0FBA,8,6,,0,0,1,1,0,0,0,,,,,,,,0,,,BTR,,,1,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Bit Test and Reset
+0FBA,8,7,,0,0,1,1,0,0,0,,,,,,,,0,,,BTC,,,1,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Bit Test and Complement
+0FBB,,,,0,0,1,1,0,0,0,,,,,,,0,0,,,BTC,,,1,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test and Complement
+0FBC,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BSF,,,0,0,1,1,1,r16/32,r/m16/32,,,,,,,,,,,Bit Scan Forward
+0FBD,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BSR,,,0,0,1,1,1,r16/32,r/m16/32,,,,,,,,,,,Bit Scan Reverse
+0FBE,,,,0,0,1,1,0,0,0,,,,,,,,0,,,MOVSX,,,0,0,1,1,1,r16/32,r/m8,,,,,,,,,,,Move with Sign-Extension
+0FBF,,,,0,0,1,1,0,0,0,,,,,,,,0,,,MOVSX,,,0,0,1,1,1,r16/32,r/m16,,,,,,,,,,,Move with Sign-Extension

@@ -7,8 +7,9 @@ Its main drawback at least for retro developers is that other than a general 'bi
 
 While developing MartyPC, I noticed that iced didn't handle a number of undocumented or aliased instructions on the 8088. 
 
-This crate will leverage MartyPC's internal disassembler for the 8088 and V20, and expand upon it for support of the 286 and 386. 
+This crate will leverage MartyPC's internal disassembler for the 8088 and V20, and expand upon it for support of the 286 and 386. It is heavily influenced by iced-x86's design.
 
-When specifying a CPU type as part of a disassembly context, marty_dasm will produce output that should exactly match what that specific CPU would decode. For the 8088 this may include several 'impossible' instruction forms that traditional disassemblers would never emit and traditional assemblers would refuse to encoode.
+When specifying a CPU type as part of a disassembly context, marty_dasm will produce output that should exactly match what that specific CPU would decode. For the 8088 this may include several 'impossible' instruction forms that traditional disassemblers would never emit and traditional assemblers would refuse to encode.
 
 This project is still in the design phase.
+
