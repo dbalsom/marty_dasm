@@ -22,18 +22,35 @@
     DEALINGS IN THE SOFTWARE.
 */
 #![allow(clippy::bool_assert_comparison)]
-use std::{error::Error, fmt::Display, io};
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{AddressSize, Displacement, OperandSize, OperandType, PrefixFlags, Register16, Register32, Register8, SegmentSize};
-use crate::cpu_common::OperandType::{AddressingMode16, AddressingMode32};
-use crate::i80386::gdr::GdrEntry;
-use crate::i80386::Intel80386;
-use crate::instruction::Instruction;
-use crate::mnemonic::Mnemonic;
-use crate::modrm16::ModRmByte16;
-use crate::modrm32::ModRmByte32;
-use crate::sib::SibByte;
 
+use std::{error::Error, fmt::Display, io};
+
+use crate::{
+    byte_reader::ByteReader,
+    cpu_common::{
+        AddressSize,
+        Displacement,
+        OperandSize,
+        OperandType,
+        OperandType::{AddressingMode16, AddressingMode32},
+        PrefixFlags,
+        Register8,
+        Register16,
+        Register32,
+        SegmentSize,
+    },
+    error::DecodeError,
+    i80386::{Intel80386, gdr::GdrEntry},
+    instruction::Instruction,
+    mnemonic::Mnemonic,
+    modrm16::ModRmByte16,
+    modrm32::ModRmByte32,
+    sib::SibByte,
+};
+
+pub const MAX_INSTRUCTION_LENGTH: usize = 15;
+
+#[allow(dead_code)]
 #[derive(Copy, Clone, Default)]
 pub struct InstTemplate {
     pub grp: u8,
@@ -71,7 +88,6 @@ pub enum OperandTemplate {
     Register8,
     Register16,
     Register16or32,
-    Register32,
     SegmentRegister,
     ControlRegister,
     DebugRegister,
@@ -81,22 +97,15 @@ pub enum OperandTemplate {
     Immediate16or32,
     Immediate8SignExtended16,
     Immediate8SignExtended16or32,
-    Immediate8SignExtended32,
     Relative8,
     Relative16,
     Relative16or32,
-    Relative32,
     Offset8,
-    Offset16,
     Offset16or32,
-    Offset32,
     FixedRegister8(Register8),
     FixedRegister16(Register16),
     FixedRegister16or32(Register16),
-    FixedRegister32(Register32),
     FarPointer,
-    M1616Pair,
-    M1632Pair
 }
 
 impl OperandTemplate {
@@ -141,7 +150,7 @@ impl OperandTemplate {
                         OperandSize::Operand16 => Ok(OperandType::Register16(modrm.unwrap().op1_reg16())),
                         OperandSize::Operand32 => Ok(OperandType::Register32(modrm.unwrap().op1_reg32())),
                         _ => panic!("Unexpected operand size in ModRM16orR32"),
-                    }
+                    },
                 }
             }
             (OperandTemplate::ModRM32, _) => {
@@ -153,10 +162,15 @@ impl OperandTemplate {
             }
             (OperandTemplate::Register8, _) => Ok(OperandType::Register8(modrm.unwrap().op2_reg8())),
             (OperandTemplate::Register16, _) => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
-            (OperandTemplate::Register16or32, OperandSize::Operand16) => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
-            (OperandTemplate::Register16or32, OperandSize::Operand32) => Ok(OperandType::Register32(modrm.unwrap().op2_reg32())),
-            (OperandTemplate::Register32, _) => Ok(OperandType::Register32(modrm.unwrap().op2_reg32())),
-            (OperandTemplate::SegmentRegister, _) => Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16_386())),
+            (OperandTemplate::Register16or32, OperandSize::Operand16) => {
+                Ok(OperandType::Register16(modrm.unwrap().op2_reg16()))
+            }
+            (OperandTemplate::Register16or32, OperandSize::Operand32) => {
+                Ok(OperandType::Register32(modrm.unwrap().op2_reg32()))
+            }
+            (OperandTemplate::SegmentRegister, _) => {
+                Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16_386()))
+            }
             (OperandTemplate::ControlRegister, _) => Ok(OperandType::ControlRegister(modrm.unwrap().op2_reg_ctrl())),
             (OperandTemplate::DebugRegister, _) => Ok(OperandType::DebugRegister(modrm.unwrap().op2_reg_dbg())),
             (OperandTemplate::FixedImmediate8(val), _) => {
@@ -164,7 +178,7 @@ impl OperandTemplate {
                 instruction.disambiguate = true;
                 Ok(OperandType::Immediate8(*val))
             }
-            (OperandTemplate::Immediate8, _ ) => {
+            (OperandTemplate::Immediate8, _) => {
                 let operand = bytes.read_u8()?;
                 instruction.instruction_bytes.push(operand);
                 instruction.immediate_bytes.push(operand);
@@ -236,12 +250,6 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Offset8_16(operand))
             }
-            (OperandTemplate::Offset16, _) => {
-                let operand = bytes.read_u16()?;
-                instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
-                instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
-                Ok(OperandType::Offset16_16(operand))
-            }
             (OperandTemplate::Offset16or32, OperandSize::Operand16) => {
                 let operand = bytes.read_u16()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
@@ -257,13 +265,15 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister8(r8), _) => {
                 instruction.disambiguate = true;
                 Ok(OperandType::Register8(*r8))
-            },
+            }
             (OperandTemplate::FixedRegister16(r16), _) => {
                 instruction.disambiguate = true;
                 Ok(OperandType::Register16(*r16))
-            },
+            }
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand16) => Ok(OperandType::Register16(*r16)),
-            (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => Ok(OperandType::Register32(Register32::from(*r16))),
+            (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
+                Ok(OperandType::Register32(Register32::from(*r16)))
+            }
             (OperandTemplate::FarPointer, _) => {
                 let (segment, offset) = bytes.peek_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
@@ -273,7 +283,7 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
                 Ok(OperandType::FarPointer16(segment, offset))
             }
-            _ => Ok(OperandType::NoOperand)
+            _ => Ok(OperandType::NoOperand),
         }
     }
 
@@ -287,7 +297,6 @@ impl OperandTemplate {
         instruction: &mut Instruction,
         force_reg: bool,
     ) -> io::Result<OperandType> {
-
         match (self, operand_size) {
             (OperandTemplate::ModRM8, _) => {
                 if let Some(sib) = sib_option {
@@ -295,7 +304,7 @@ impl OperandTemplate {
                 }
                 else {
                     let addr_mode = modrm.unwrap().address_offset(displacement);
-                    match modrm.unwrap().is_addressing_mode()  {
+                    match modrm.unwrap().is_addressing_mode() {
                         true => Ok(AddressingMode32(addr_mode, OperandSize::Operand8)),
                         false => Ok(OperandType::Register8(modrm.unwrap().op1_reg8())),
                     }
@@ -318,39 +327,44 @@ impl OperandTemplate {
                     (Some(sib), false) => {
                         // Force 16-bit operand size.
                         Ok(AddressingMode32(sib.address_offset(), OperandSize::Operand16))
-                    },
+                    }
                     _ => {
                         let modrm = modrm.unwrap();
                         let addr_mode = modrm.address_offset(displacement);
                         if modrm.is_addressing_mode() && !force_reg {
                             // Force 16-bit operand size.
                             Ok(AddressingMode32(addr_mode, OperandSize::Operand16))
-                        } else {
+                        }
+                        else {
                             Ok(OperandType::Register32(modrm.op1_reg32()))
                         }
                     }
                 }
             }
-            (OperandTemplate::ModRM16or32 | OperandTemplate::ModRM32, _) => {
-                match (sib_option, force_reg) {
-                    (Some(sib), false) => Ok(AddressingMode32(sib.address_offset(), operand_size)),
-                    _ => {
-                        let modrm = modrm.unwrap();
-                        let addr_mode = modrm.address_offset(displacement);
-                        if modrm.is_addressing_mode() && !force_reg {
-                            Ok(AddressingMode32(addr_mode, operand_size))
-                        } else {
-                            Ok(OperandType::Register32(modrm.op1_reg32()))
-                        }
+            (OperandTemplate::ModRM16or32 | OperandTemplate::ModRM32, _) => match (sib_option, force_reg) {
+                (Some(sib), false) => Ok(AddressingMode32(sib.address_offset(), operand_size)),
+                _ => {
+                    let modrm = modrm.unwrap();
+                    let addr_mode = modrm.address_offset(displacement);
+                    if modrm.is_addressing_mode() && !force_reg {
+                        Ok(AddressingMode32(addr_mode, operand_size))
+                    }
+                    else {
+                        Ok(OperandType::Register32(modrm.op1_reg32()))
                     }
                 }
-            }
+            },
             (OperandTemplate::Register8, _) => Ok(OperandType::Register8(modrm.unwrap().op2_reg8())),
             (OperandTemplate::Register16, _) => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
-            (OperandTemplate::Register16or32, OperandSize::Operand16) => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
-            (OperandTemplate::Register16or32, OperandSize::Operand32) => Ok(OperandType::Register32(modrm.unwrap().op2_reg32())),
-            (OperandTemplate::Register32, _) => Ok(OperandType::Register32(modrm.unwrap().op2_reg32())),
-            (OperandTemplate::SegmentRegister, _) => Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16_386())),
+            (OperandTemplate::Register16or32, OperandSize::Operand16) => {
+                Ok(OperandType::Register16(modrm.unwrap().op2_reg16()))
+            }
+            (OperandTemplate::Register16or32, OperandSize::Operand32) => {
+                Ok(OperandType::Register32(modrm.unwrap().op2_reg32()))
+            }
+            (OperandTemplate::SegmentRegister, _) => {
+                Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16_386()))
+            }
             (OperandTemplate::ControlRegister, _) => Ok(OperandType::ControlRegister(modrm.unwrap().op2_reg_ctrl())),
             (OperandTemplate::DebugRegister, _) => Ok(OperandType::DebugRegister(modrm.unwrap().op2_reg_dbg())),
             (OperandTemplate::FixedImmediate8(val), _) => {
@@ -436,12 +450,6 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Offset8_32(operand))
             }
-            (OperandTemplate::Offset16, _) => {
-                let operand = bytes.read_u32()?;
-                instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
-                instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
-                Ok(OperandType::Offset16_32(operand))
-            }
             (OperandTemplate::Offset16or32, OperandSize::Operand16) => {
                 let operand = bytes.read_u32()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
@@ -457,13 +465,15 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister8(r8), _) => {
                 instruction.disambiguate = true;
                 Ok(OperandType::Register8(*r8))
-            },
+            }
             (OperandTemplate::FixedRegister16(r16), _) => {
                 instruction.disambiguate = true;
                 Ok(OperandType::Register16(*r16))
-            },
+            }
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand16) => Ok(OperandType::Register16(*r16)),
-            (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => Ok(OperandType::Register32(Register32::from(*r16))),
+            (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
+                Ok(OperandType::Register32(Register32::from(*r16)))
+            }
             (OperandTemplate::FarPointer, _) => {
                 let (segment, offset) = bytes.read_farptr32()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
@@ -473,10 +483,9 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
                 Ok(OperandType::FarPointer32(segment, offset))
             }
-            _ => Ok(OperandType::NoOperand)
+            _ => Ok(OperandType::NoOperand),
         }
     }
-
 }
 
 type Ot = OperandTemplate;
@@ -518,10 +527,8 @@ macro_rules! inst_skip {
     ($init:ident, $ct:literal) => {
         $init.idx += $ct;
     };
-
 }
 macro_rules! inst {
-
     ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr) => {
         $init.table[$init.idx] = InstTemplate {
             grp: $grp,
@@ -530,7 +537,7 @@ macro_rules! inst {
             mnemonic: Mnemonic::$m,
             operand1: $o1,
             operand2: $o2,
-            operand3: OperandTemplate::NoOperand
+            operand3: OperandTemplate::NoOperand,
         };
         // if $init.idx >= REGULAR_OPS_LEN {
         //     assert!($opcode == ($init.idx - REGULAR_OPS_LEN) as u8);
@@ -538,7 +545,7 @@ macro_rules! inst {
         $init.idx += 1;
     };
 
-        ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr, $o3:expr) => {
+    ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr, $o3:expr) => {
         $init.table[$init.idx] = InstTemplate {
             grp: $grp,
             gdr: GdrEntry($gdr),
@@ -557,14 +564,14 @@ pub const EXTENDED_OPS_LEN: usize = 256 + (3 * 8); // 256 opcodes + 3 groups of 
 pub const TOTAL_OPS_LEN: usize = REGULAR_OPS_LEN + EXTENDED_OPS_LEN;
 
 pub struct TableInitializer {
-    pub idx: usize,
+    pub idx:   usize,
     pub table: [InstTemplate; TOTAL_OPS_LEN],
 }
 
 impl TableInitializer {
     const fn new() -> Self {
         Self {
-            idx: 0,
+            idx:   0,
             table: [InstTemplate::constdefault(); TOTAL_OPS_LEN],
         }
     }
@@ -1067,11 +1074,10 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
 };
 
 impl Intel80386 {
-
     pub const PREFIX_LIMIT: usize = 15;
 
     #[rustfmt::skip]
-    pub fn decode(bytes: &mut impl ByteReader, segment_size: SegmentSize) -> Result<Instruction, Box<dyn Error>> {
+    pub fn decode(bytes: &mut impl ByteReader, segment_size: SegmentSize) -> Result<Instruction, DecodeError> {
 
         let mut instruction = Instruction::default();
 
@@ -1298,6 +1304,10 @@ impl Intel80386 {
 
         // Set mnemonic from decode table
         instruction.is_complete = true;
+        // Is instruction too long? Max length is 15 bytes.
+        if instruction.instruction_bytes.len() > MAX_INSTRUCTION_LENGTH {
+            instruction.is_valid = false;
+        }
         instruction.operand_size = operand_size;
         instruction.address_size = address_size;
         instruction.mnemonic = match operand_size {

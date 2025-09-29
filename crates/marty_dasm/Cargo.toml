@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 num-traits.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 marty_fuzzer = { path = "../marty_fuzzer" }

@@ -21,14 +21,25 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use std::fmt::{Display, UpperHex};
-use num_traits::{PrimInt, Signed, ToPrimitive};
-use crate::cpu_common::{AddressOffset16, AddressOffset32, AddressSize, BaseRegister, OperandSize, OperandType, PrefixFlags, Register16, ScaledIndex, SibScale};
-use crate::cpu_common::AddressOffset16::{BpDi, BpSi, BpSiDisp8, Bx, BxDi, BxDisp16, BxSi, BxSiDisp16, Di, Si, SiDisp8};
-use crate::cpu_common::AddressOffset32::{Eax, EaxDisp8, Ebp, Ebx, Ecx, Edi, Edx, Esi, SibPending};
-use crate::formatter::{Format, FormatOptions, FormatterOutput};
-use crate::instruction::Instruction;
-use crate::mnemonic::Mnemonic;
+use crate::{
+    cpu_common::{
+        AddressOffset16,
+        AddressOffset32,
+        AddressSize,
+        BaseRegister,
+        OperandSize,
+        OperandType,
+        PrefixFlags,
+        Register16,
+        ScaledIndex,
+        SibScale,
+    },
+    formatter::{Format, FormatOptions, FormatterOutput},
+    instruction::Instruction,
+    mnemonic::Mnemonic,
+};
+use num_traits::PrimInt;
+use std::fmt::Display;
 
 pub trait UnsignedAbsU32: Copy {
     fn unsigned_abs_u32(self) -> u32;
@@ -36,18 +47,35 @@ pub trait UnsignedAbsU32: Copy {
 }
 
 impl UnsignedAbsU32 for i8 {
-    #[inline] fn unsigned_abs_u32(self) -> u32 { self.unsigned_abs() as u32 }
-    #[inline] fn is_negative(self) -> bool { self < 0 }
+    #[inline]
+    fn unsigned_abs_u32(self) -> u32 {
+        self.unsigned_abs() as u32
+    }
+    #[inline]
+    fn is_negative(self) -> bool {
+        self < 0
+    }
 }
 impl UnsignedAbsU32 for i16 {
-    #[inline] fn unsigned_abs_u32(self) -> u32 { self.unsigned_abs() as u32 }
-    #[inline] fn is_negative(self) -> bool { self < 0 }
+    #[inline]
+    fn unsigned_abs_u32(self) -> u32 {
+        self.unsigned_abs() as u32
+    }
+    #[inline]
+    fn is_negative(self) -> bool {
+        self < 0
+    }
 }
 impl UnsignedAbsU32 for i32 {
-    #[inline] fn unsigned_abs_u32(self) -> u32 { self.unsigned_abs() as u32 }
-    #[inline] fn is_negative(self) -> bool { self < 0 }
+    #[inline]
+    fn unsigned_abs_u32(self) -> u32 {
+        self.unsigned_abs() as u32
+    }
+    #[inline]
+    fn is_negative(self) -> bool {
+        self < 0
+    }
 }
-
 
 /// NASM-style formatter
 #[derive(Copy, Clone, Debug, Default)]
@@ -73,13 +101,13 @@ impl Format for NasmFormatter {
 
         if opts.uppercase_mnemonic {
             out.write_mnemonic(m);
-        } else {
+        }
+        else {
             out.write_mnemonic(&m.to_ascii_lowercase());
         }
     }
 
     fn format_operands(&self, inst: &Instruction, _opts: &FormatOptions, out: &mut dyn FormatterOutput) {
-
         // Print disambiguator ('byte', 'word', 'dword') if needed
         self.format_disambiguation(inst, _opts, inst.operand1_type, out);
 
@@ -102,15 +130,16 @@ impl Format for NasmFormatter {
                 // The default operand for AAD & AAM is 0x0A, it is standard not to display it
                 if let OperandType::Immediate8(imm) = inst.operand1_type {
                     imm == 0x0A
-                } else {
+                }
+                else {
                     false
                 }
-            },
+            }
             Mnemonic::NOP => {
                 // NOP is often encoded as XCHG eAX, eAX, so suppress the operands
                 true
             }
-            _ => false
+            _ => false,
         }
     }
 }
@@ -118,7 +147,8 @@ impl Format for NasmFormatter {
 pub fn format_hex_or_decimal<T: PrimInt + Display + std::fmt::UpperHex>(value: T) -> String {
     if value < T::from(10).unwrap() {
         format!("{}", value)
-    } else {
+    }
+    else {
         format!("{:X}h", value)
     }
 }
@@ -130,27 +160,26 @@ pub fn format_signed_hex_or_decimal<T: UnsignedAbsU32>(value: T) -> String {
     if mag < 10 {
         if mag == 0 {
             String::new()
-        } else if neg {
-            format!("-{mag}")
-        } else {
-            format!("+{mag}")
         }
-    } else {
-        // hex from the *unsigned* magnitude
-        let s = format!("{:X}", mag);
-        if neg {
-            format!("-{s}h")
+        else if neg {
+            format!("-{mag}")
         }
         else {
-            format!("+{s}h")
+            format!("+{mag}")
         }
+    }
+    else {
+        // hex from the *unsigned* magnitude
+        let s = format!("{:X}", mag);
+        if neg { format!("-{s}h") } else { format!("+{s}h") }
     }
 }
 
 pub fn format_hex_or_decimal_16<T: PrimInt + Display + std::fmt::UpperHex>(value: T) -> String {
     if value < T::from(10).unwrap() {
         format!("{}", value)
-    } else {
+    }
+    else {
         format!("{:04X}h", value)
     }
 }
@@ -158,14 +187,20 @@ pub fn format_hex_or_decimal_16<T: PrimInt + Display + std::fmt::UpperHex>(value
 pub fn format_hex_or_decimal_32<T: PrimInt + Display + std::fmt::UpperHex>(value: T) -> String {
     if value < T::from(10).unwrap() {
         format!("{}", value)
-    } else {
+    }
+    else {
         format!("{:08X}h", value)
     }
 }
 
 impl NasmFormatter {
-
-    fn format_disambiguation(&self, inst: &Instruction, _opts: &FormatOptions, operand_type: OperandType, out: &mut dyn FormatterOutput) {
+    fn format_disambiguation(
+        &self,
+        inst: &Instruction,
+        _opts: &FormatOptions,
+        operand_type: OperandType,
+        out: &mut dyn FormatterOutput,
+    ) {
         if inst.disambiguate {
             let operand_size = match operand_type {
                 OperandType::AddressingMode16(_, size) => Some(size),
@@ -180,12 +215,11 @@ impl NasmFormatter {
                     out.write_separator(" ");
                     return;
                 }
-                _ => None
+                _ => None,
             };
 
             if let Some(size) = operand_size {
                 if inst.mnemonic.is_far() {
-
                     out.write_text("far");
                     out.write_separator(" ");
                 }
@@ -207,32 +241,30 @@ impl NasmFormatter {
 
         // Output registers
         match mode {
-            None => {},
+            None => {}
             BxSi | BxSiDisp8(_) | BxSiDisp16(_) => {
                 out.write_register("bx");
                 out.write_symbol("+");
                 out.write_register("si");
-            },
+            }
             BxDi | BxDiDisp8(_) | BxDiDisp16(_) => {
                 out.write_register("bx");
                 out.write_symbol("+");
                 out.write_register("di");
-            },
+            }
             BpSi | BpSiDisp8(_) | BpSiDisp16(_) => {
                 out.write_register("bp");
                 out.write_symbol("+");
                 out.write_register("si");
-            },
+            }
             BpDi | BpDiDisp8(_) | BpDiDisp16(_) => {
                 out.write_register("bp");
                 out.write_symbol("+");
                 out.write_register("di");
-            },
+            }
             Si | SiDisp8(_) | SiDisp16(_) => out.write_register("si"),
             Di | DiDisp8(_) | DiDisp16(_) => out.write_register("di"),
-            Disp16(disp) => {
-                out.write_displacement(&format_hex_or_decimal(disp as u16))
-            },
+            Disp16(disp) => out.write_displacement(&format_hex_or_decimal(disp as u16)),
             Bx | BxDisp8(_) | BxDisp16(_) => out.write_register("bx"),
             BpDisp8(_) | BpDisp16(_) => out.write_register("bp"),
         }
@@ -264,37 +296,37 @@ impl NasmFormatter {
             SibScale::One => {
                 out.write_symbol("*");
                 out.write_text("1");
-            },
+            }
             SibScale::Two => {
                 out.write_symbol("*");
                 out.write_text("2");
-            },
+            }
             SibScale::Four => {
                 out.write_symbol("*");
                 out.write_text("4");
-            },
+            }
             SibScale::Eight => {
                 out.write_symbol("*");
                 out.write_text("8");
-            },
+            }
         }
     }
 
     fn format_scaled_index(out: &mut dyn FormatterOutput, scale: ScaledIndex) {
         match scale {
-            ScaledIndex::None => {},
+            ScaledIndex::None => {}
             ScaledIndex::EaxScaled(scale) => {
                 out.write_register("eax");
                 Self::format_scale(out, scale)
-            },
+            }
             ScaledIndex::EcxScaled(scale) => {
                 out.write_register("ecx");
                 Self::format_scale(out, scale)
-            },
+            }
             ScaledIndex::EdxScaled(scale) => {
                 out.write_register("edx");
                 Self::format_scale(out, scale)
-            },
+            }
             ScaledIndex::EbxScaled(scale) => {
                 out.write_register("ebx");
                 Self::format_scale(out, scale)
@@ -302,15 +334,15 @@ impl NasmFormatter {
             ScaledIndex::EbpScaled(scale) => {
                 out.write_register("ebp");
                 Self::format_scale(out, scale)
-            },
+            }
             ScaledIndex::EsiScaled(scale) => {
                 out.write_register("esi");
                 Self::format_scale(out, scale)
-            },
+            }
             ScaledIndex::EdiScaled(scale) => {
                 out.write_register("edi");
                 Self::format_scale(out, scale)
-            },
+            }
         }
     }
 
@@ -394,11 +426,24 @@ impl NasmFormatter {
         }
     }
 
-    fn format_operand(&self, instruction: &Instruction, operand: OperandType, seg_override: Option<Register16>, _opts: &FormatOptions, out: &mut dyn FormatterOutput) {
+    fn format_operand(
+        &self,
+        instruction: &Instruction,
+        operand: OperandType,
+        seg_override: Option<Register16>,
+        _opts: &FormatOptions,
+        out: &mut dyn FormatterOutput,
+    ) {
         match operand {
-            OperandType::Immediate8(imm) => { out.write_immediate(&format_hex_or_decimal(imm)); }
-            OperandType::Immediate16(imm) => { out.write_immediate(&format_hex_or_decimal(imm)); }
-            OperandType::Immediate32(imm) => { out.write_immediate(&format_hex_or_decimal(imm)); }
+            OperandType::Immediate8(imm) => {
+                out.write_immediate(&format_hex_or_decimal(imm));
+            }
+            OperandType::Immediate16(imm) => {
+                out.write_immediate(&format_hex_or_decimal(imm));
+            }
+            OperandType::Immediate32(imm) => {
+                out.write_immediate(&format_hex_or_decimal(imm));
+            }
             OperandType::Immediate8s(imm) => {
                 let display = match instruction.address_size {
                     AddressSize::Address16 => format_hex_or_decimal(imm as i16 as u16),
@@ -407,36 +452,33 @@ impl NasmFormatter {
                 out.write_immediate(&display);
             }
             OperandType::Relative8(num) => {
-                let display = match instruction.address_size {
+                match instruction.address_size {
                     AddressSize::Address16 => {
                         let adjust_relative = (num as u16).wrapping_add(instruction.instruction_bytes.len() as u16);
                         out.write_relative(&format_hex_or_decimal_16(adjust_relative))
-                    },
+                    }
                     AddressSize::Address32 => {
                         let adjust_relative = (num as i16).wrapping_add(instruction.instruction_bytes.len() as i16);
                         out.write_relative(&format_hex_or_decimal_32(adjust_relative as u32))
-                    },
+                    }
                 };
             }
             OperandType::Relative16(num) => {
                 let display = (num as u16).wrapping_add(instruction.instruction_bytes.len() as u16);
-                let width = match instruction.address_size {
-                    AddressSize::Address16 => {
-                        out.write_relative(&format_hex_or_decimal_16(display))
-                    },
-                    AddressSize::Address32 => {
-                        out.write_relative(&format_hex_or_decimal_32(display))
-                    },
+                match instruction.address_size {
+                    AddressSize::Address16 => out.write_relative(&format_hex_or_decimal_16(display)),
+                    AddressSize::Address32 => out.write_relative(&format_hex_or_decimal_32(display)),
                 };
             }
-            OperandType::Relative32(num ) => {
+            OperandType::Relative32(num) => {
                 let display = (num as u32).wrapping_add(instruction.instruction_bytes.len() as u32);
                 out.write_relative(&format_hex_or_decimal_32(display))
             }
             OperandType::Offset8_16(offset) | OperandType::Offset16_16(offset) | OperandType::Offset32_16(offset) => {
                 let base_register = if let Some(seg) = seg_override {
                     seg
-                } else {
+                }
+                else {
                     Register16::DS
                 };
                 out.write_separator("[");
@@ -444,10 +486,11 @@ impl NasmFormatter {
                 out.write_text(&format_hex_or_decimal(offset));
                 out.write_separator("]");
             }
-            OperandType::Offset8_32(offset) |  OperandType::Offset16_32(offset) | OperandType::Offset32_32(offset) => {
+            OperandType::Offset8_32(offset) | OperandType::Offset16_32(offset) | OperandType::Offset32_32(offset) => {
                 let base_register = if let Some(seg) = seg_override {
                     seg
-                } else {
+                }
+                else {
                     Register16::DS
                 };
                 out.write_separator("[");
@@ -455,16 +498,26 @@ impl NasmFormatter {
                 out.write_text(&format_hex_or_decimal(offset));
                 out.write_separator("]");
             }
-            OperandType::Register8(reg) => { out.write_register(&reg.to_string()); }
-            OperandType::Register16(reg) => { out.write_register(&reg.to_string()); }
-            OperandType::Register32(reg) => { out.write_register(&reg.to_string()); }
-            OperandType::ControlRegister(reg) => { out.write_register(&reg.to_string()); }
-            OperandType::DebugRegister(reg) => { out.write_register(&reg.to_string()); }
+            OperandType::Register8(reg) => {
+                out.write_register(&reg.to_string());
+            }
+            OperandType::Register16(reg) => {
+                out.write_register(&reg.to_string());
+            }
+            OperandType::Register32(reg) => {
+                out.write_register(&reg.to_string());
+            }
+            OperandType::ControlRegister(reg) => {
+                out.write_register(&reg.to_string());
+            }
+            OperandType::DebugRegister(reg) => {
+                out.write_register(&reg.to_string());
+            }
             OperandType::AddressingMode16(mode, _) => {
-
                 let base_register = if let Some(seg) = seg_override {
                     seg
-                } else {
+                }
+                else {
                     mode.base_register()
                 };
 
@@ -474,10 +527,10 @@ impl NasmFormatter {
                 out.write_separator("]");
             }
             OperandType::AddressingMode32(mode, _) => {
-
                 let base_register = if let Some(seg) = seg_override {
                     seg
-                } else {
+                }
+                else {
                     mode.base_register()
                 };
 
@@ -501,5 +554,4 @@ impl NasmFormatter {
             OperandType::InvalidOperand => {}
         }
     }
-
 }

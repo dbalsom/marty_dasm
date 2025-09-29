@@ -24,12 +24,11 @@ mod common;
 
 use std::io::Cursor;
 
+use crate::common::init_tests;
 use colored::{Color, Colorize};
-use rand::{Rng, SeedableRng};
 use marty_dasm::prelude::*;
 use marty_fuzzer::fuzzer::{FuzzerOptions, InstructionFuzzer};
-use crate::common::format::format_marty_instruction;
-use crate::common::init_tests;
+use rand::{Rng, SeedableRng};
 
 pub const COLOR_TEST_COUNT: usize = 100;
 pub const TEST_SEED: u64 = 0x12345678;
@@ -40,9 +39,12 @@ fn colored_nop_tokenstream_integration() -> Result<(), Box<dyn std::error::Error
     let mut rng = rand::rngs::StdRng::seed_from_u64(TEST_SEED);
 
     // Create the instruction fuzzer.
-    let mut fuzzer = InstructionFuzzer::new(CpuType::Intel80386);
+    let fuzzer = InstructionFuzzer::new(CpuType::Intel80386);
     let options = FuzzerOptions {
-        segment_size: rng.random_bool(0.5).then_some(SegmentSize::Segment32).unwrap_or(SegmentSize::Segment16),
+        segment_size: rng
+            .random_bool(0.5)
+            .then_some(SegmentSize::Segment32)
+            .unwrap_or(SegmentSize::Segment16),
         seed: 0xDEADBEEF,
         opcode_range: Some(0x00u16..=0x0FFFu16),
         extension_range: Some(0..=7),
@@ -51,16 +53,18 @@ fn colored_nop_tokenstream_integration() -> Result<(), Box<dyn std::error::Error
         allow_undefined: false,
     };
 
-
-
     for _ in 0..COLOR_TEST_COUNT {
-
         let instruction = fuzzer.random_instruction(&mut rng, &options)?;
         let marty_decode_buffer = Cursor::new(instruction.bytes.clone());
 
         // Coin toss between 16 and 32 bit mode
         let wide = rng.random_bool(0.5);
-        let (_bitness, segment_size) = if wide { (32, SegmentSize::Segment32) } else { (16, SegmentSize::Segment16 ) };
+        let (_bitness, segment_size) = if wide {
+            (32, SegmentSize::Segment32)
+        }
+        else {
+            (16, SegmentSize::Segment16)
+        };
 
         let marty_decoder_opts = DecoderOptions {
             cpu: CpuType::Intel80386,
@@ -86,19 +90,39 @@ fn colored_nop_tokenstream_integration() -> Result<(), Box<dyn std::error::Error
         let mut colored_out = String::new();
         for tok in stream.iter() {
             match tok {
-                TokenItem::Decorator(DecoratorToken::OpenBracket) => colored_out.push_str("[".color(Color::BrightBlue).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::CloseBracket) => colored_out.push_str("]".color(Color::BrightBlue).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::Comma) => colored_out.push_str(",".color(Color::White).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::Plus) => colored_out.push_str("+".color(Color::White).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::Minus) => colored_out.push_str("-".color(Color::White).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::Multiply) => colored_out.push_str("*".color(Color::White).to_string().as_str()),
-                TokenItem::Decorator(DecoratorToken::Colon) => colored_out.push_str(":".color(Color::White).to_string().as_str()),
+                TokenItem::Decorator(DecoratorToken::OpenBracket) => {
+                    colored_out.push_str("[".color(Color::BrightBlue).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::CloseBracket) => {
+                    colored_out.push_str("]".color(Color::BrightBlue).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::Comma) => {
+                    colored_out.push_str(",".color(Color::White).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::Plus) => {
+                    colored_out.push_str("+".color(Color::White).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::Minus) => {
+                    colored_out.push_str("-".color(Color::White).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::Multiply) => {
+                    colored_out.push_str("*".color(Color::White).to_string().as_str())
+                }
+                TokenItem::Decorator(DecoratorToken::Colon) => {
+                    colored_out.push_str(":".color(Color::White).to_string().as_str())
+                }
                 TokenItem::Decorator(DecoratorToken::Whitespace(ws)) => colored_out.push_str(ws),
                 TokenItem::Decorator(DecoratorToken::Text(t)) => colored_out.push_str(t),
                 TokenItem::Decorator(DecoratorToken::Number(n)) => colored_out.push_str(n),
-                TokenItem::Semantic(SemanticToken::Mnemonic(m)) => colored_out.push_str(m.color(Color::Cyan).to_string().as_str()),
-                TokenItem::Semantic(SemanticToken::Register(r)) => colored_out.push_str(r.color(Color::Green).to_string().as_str()),
-                TokenItem::Semantic(SemanticToken::Displacement(d)) => colored_out.push_str(d.color(Color::Cyan).to_string().as_str()),
+                TokenItem::Semantic(SemanticToken::Mnemonic(m)) => {
+                    colored_out.push_str(m.color(Color::Cyan).to_string().as_str())
+                }
+                TokenItem::Semantic(SemanticToken::Register(r)) => {
+                    colored_out.push_str(r.color(Color::Green).to_string().as_str())
+                }
+                TokenItem::Semantic(SemanticToken::Displacement(d)) => {
+                    colored_out.push_str(d.color(Color::Cyan).to_string().as_str())
+                }
                 TokenItem::Semantic(other) => colored_out.push_str(other.to_string().as_str()),
             }
         }
@@ -106,9 +130,7 @@ fn colored_nop_tokenstream_integration() -> Result<(), Box<dyn std::error::Error
         println!("{}", colored_out);
     }
 
-
     Ok(())
     // Assert flat render matches expected plain text
     //assert_eq!(stream.to_string_flat(), "nop");
 }
-

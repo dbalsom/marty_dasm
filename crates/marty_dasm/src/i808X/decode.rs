@@ -35,15 +35,25 @@
 
 */
 
+use crate::{
+    byte_reader::ByteReader,
+    cpu_common::{
+        Displacement,
+        OperandSize,
+        OperandType,
+        OperandType::AddressingMode16,
+        PrefixFlags,
+        Register8,
+        Register16,
+        Xi,
+    },
+    error::DecodeError,
+    i808X::{Intel808x, gdr::GdrEntry},
+    instruction::Instruction,
+    mnemonic::Mnemonic,
+    modrm16::ModRmByte16,
+};
 use std::{error::Error, fmt::Display, io};
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{Displacement, OperandSize, OperandType, Register16, Register8, Xi, PrefixFlags};
-use crate::cpu_common::OperandType::AddressingMode16;
-use crate::i808X::gdr::GdrEntry;
-use crate::i808X::Intel808x;
-use crate::instruction::Instruction;
-use crate::mnemonic::Mnemonic;
-use crate::modrm16::ModRmByte16;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum OperandTemplate {
@@ -146,7 +156,7 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
                 Ok(OperandType::FarPointer16(segment, offset))
             }
-            _ => Ok(OperandType::NoOperand)
+            _ => Ok(OperandType::NoOperand),
         }
     }
 }
@@ -186,6 +196,7 @@ impl Display for InstructionDecodeError {
     }
 }
 
+#[allow(dead_code)]
 pub struct InstTemplate {
     pub grp: u8,
     pub gdr: GdrEntry,
@@ -591,7 +602,7 @@ pub const DECODE: [InstTemplate; 352] = [
 
 impl Intel808x {
     #[rustfmt::skip]
-    pub fn decode(bytes: &mut impl ByteReader) -> Result<Instruction, Box<dyn Error>> {
+    pub fn decode(bytes: &mut impl ByteReader) -> Result<Instruction, DecodeError> {
 
         let mut instruction = Instruction {
             is_valid: true,

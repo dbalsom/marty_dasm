@@ -20,20 +20,19 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use std::collections::{VecDeque};
-use std::ops::{Range, RangeInclusive};
+use std::{
+    collections::VecDeque,
+    ops::{Range, RangeInclusive},
+};
 
-use rand::prelude::StdRng;
-use rand::Rng;
-use marty_dasm::decoder::CpuType;
-use marty_dasm::modrm16::ModRmByte16;
-use marty_dasm::modrm32::ModRmByte32;
-use marty_dasm::prelude::*;
+use marty_dasm::{decoder::CpuType, prelude::*};
+use rand::{prelude::StdRng, Rng};
 
-use crate::db::{IsaDB, IsaRecord, IterFilter};
-use crate::error::FuzzerError;
-use crate::error::FuzzerError::InvalidOptions;
-use crate::modrm::{ModRm, ModRmFuzzer};
+use crate::{
+    db::{IsaDB, IsaRecord, IterFilter},
+    error::{FuzzerError, FuzzerError::InvalidOptions},
+    modrm_fuzzer::ModRmFuzzer,
+};
 
 pub const INSTRUCTION_POST_LEN: usize = 10;
 
@@ -77,7 +76,7 @@ pub struct InstructionFuzzer {
     isa_db: IsaDB,
 }
 
-#[derive (Clone, Default)]
+#[derive(Clone, Default)]
 pub struct FuzzerInstruction {
     pub cpu_type: CpuType,
     pub bytes: Vec<u8>,
@@ -91,13 +90,16 @@ pub struct FuzzerInstruction {
 
 impl InstructionFuzzer {
     pub fn new(cpu_type: CpuType) -> Self {
-
         let isa_db = IsaDB::new(cpu_type);
 
         InstructionFuzzer { cpu_type, isa_db }
     }
 
-    pub fn random_instruction(&self, rng: &mut StdRng, options: &FuzzerOptions) -> Result<FuzzerInstruction, FuzzerError> {
+    pub fn random_instruction(
+        &self,
+        rng: &mut StdRng,
+        options: &FuzzerOptions,
+    ) -> Result<FuzzerInstruction, FuzzerError> {
         match self.cpu_type {
             CpuType::Intel808x => {
                 unimplemented!("{:?}", self.cpu_type);
@@ -105,17 +107,18 @@ impl InstructionFuzzer {
             CpuType::Intel80286 => {
                 unimplemented!("{:?}", self.cpu_type);
             }
-            CpuType::Intel80386 => {
-
-                self.random_instruction_386(rng, options)
-            }
+            CpuType::Intel80386 => self.random_instruction_386(rng, options),
             _ => {
                 unimplemented!("{:?}", self.cpu_type);
             }
         }
     }
 
-    pub fn random_instruction_386(&self, rng: &mut StdRng, options: &FuzzerOptions) -> Result<FuzzerInstruction, FuzzerError> {
+    pub fn random_instruction_386(
+        &self,
+        rng: &mut StdRng,
+        options: &FuzzerOptions,
+    ) -> Result<FuzzerInstruction, FuzzerError> {
         let mut new_instruction = FuzzerInstruction {
             cpu_type: self.cpu_type,
             ..FuzzerInstruction::default()
@@ -131,7 +134,9 @@ impl InstructionFuzzer {
         let isa_records: Vec<&IsaRecord> = self.isa_db.opcode_iter(filter).collect();
 
         if isa_records.is_empty() {
-            return Err(InvalidOptions("No ISA records match the provided filter options".into()));
+            return Err(InvalidOptions(
+                "No ISA records match the provided filter options".into(),
+            ));
         }
 
         let mut record = isa_records[rng.random_range(0..isa_records.len())];
@@ -139,7 +144,7 @@ impl InstructionFuzzer {
             record = isa_records[rng.random_range(0..isa_records.len())];
         }
 
-        let mut address_size = match options.segment_size {
+        let address_size = match options.segment_size {
             SegmentSize::Segment16 => AddressSize::Address16,
             SegmentSize::Segment32 => AddressSize::Address32,
         };
@@ -152,48 +157,41 @@ impl InstructionFuzzer {
 
         // Add modrm if instruction has a modrm.
         if record.has_modrm {
-            // Generate random modrm byte.
-            let mut modrm_byte: u8 = rng.random();
             let mut sib_byte: Option<u8> = None;
 
-            let mut resolved_modrm = None;
-
-            match address_size {
+            let modrm = match address_size {
                 AddressSize::Address16 => {
-                    let modrm_fuzzer = ModRmFuzzer::new(address_size);
+                    let mut modrm_fuzzer = ModRmFuzzer::new(address_size).with_reg_form(record.allow_reg_form);
+
+                    if let Some(extension) = record.extension {
+                        modrm_fuzzer = modrm_fuzzer.with_reg(extension);
+                    }
+
+                    modrm_fuzzer.build(rng)
                 }
                 AddressSize::Address32 => {
-                    while resolved_modrm.is_none() {
-                        let modrm = ModRmByte32::from_byte(modrm_byte);
+                    let mut modrm_fuzzer = ModRmFuzzer::new(address_size).with_reg_form(record.allow_reg_form);
 
-                        // Re-roll modrm if the instruction does not allow register form and
-                        // the modrm is in register form.
-                        if !record.allow_reg_form {
-                            if modrm.is_addressing_mode() {
-                                resolved_modrm = Some(ModRm::ModRm32(modrm));
-                            }
-                        }
-                        else {
-                            resolved_modrm = Some(ModRm::ModRm32(modrm));
-                        }
-                        modrm_byte = rng.random();
+                    if let Some(extension) = record.extension {
+                        modrm_fuzzer = modrm_fuzzer.with_reg(extension);
                     }
+
+                    let modrm = modrm_fuzzer.build(rng);
 
                     // Now we have a valid modrm byte - do we need a SIB byte?
-                    if let Some(ModRm::ModRm32(modrm)) = &resolved_modrm {
-                        if modrm.has_sib() {
-                            // Generate random SIB byte.
-                            let sib_byte: u8 = rng.random();
-                            // Push the sib byte.
-                            inst_bytes.push_back(sib_byte);
-                        }
+                    if modrm.has_sib() {
+                        // Generate random SIB byte.
+                        let sib_byte_raw: u8 = rng.random();
+                        sib_byte = Some(sib_byte_raw);
                     }
+
+                    modrm
                 }
-            }
+            };
 
             // Push the modrm and optional SIB byte.
             let mut modrm_range = inst_bytes.len()..(inst_bytes.len() + 1);
-            inst_bytes.push_back(modrm_byte);
+            inst_bytes.push_back(modrm.raw_byte());
 
             if let Some(sib) = sib_byte {
                 modrm_range.end += 1;
@@ -214,7 +212,3 @@ impl InstructionFuzzer {
         Ok(new_instruction)
     }
 }
-
-
-
-

@@ -20,8 +20,10 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
+#![allow(dead_code)]
 
 pub mod format;
+pub mod mnemonic_filter;
 
 pub fn init_tests() {
     let _ = env_logger::builder().is_test(true).try_init();

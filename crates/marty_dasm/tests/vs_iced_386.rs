@@ -25,294 +25,19 @@ use std::io::Cursor;
 
 mod common;
 
-use rand::{Rng, SeedableRng};
+use crate::common::{
+    format::{format_iced_instruction, format_marty_instruction},
+    init_tests,
+    mnemonic_filter::is_valid_mnemonic,
+};
 use marty_dasm::prelude::*;
-use crate::common::format::{format_iced_instruction, format_marty_instruction};
-use crate::common::init_tests;
+use rand::{Rng, SeedableRng};
 
 pub const TEST_SEED: u64 = 0x12345678;
 pub const FUZZ_TEST_COUNT: usize = 10_000_000;
 
 // There are an absolute ton of valid modern x86 instructions lurking in the undefined/invalid
 // space of the 386. Here we try to filter them all out.
-pub const REJECT_MNEMONICS: &[iced_x86::Mnemonic] = {
-    use iced_x86::Mnemonic;
-    &[
-        Mnemonic::Andn,
-        Mnemonic::Clac,
-        Mnemonic::Clgi,
-        Mnemonic::Clzero,
-        Mnemonic::Encls,
-        Mnemonic::Enclu,
-        Mnemonic::Enclv,
-        Mnemonic::Invd,
-        Mnemonic::Invlpg,
-        Mnemonic::Invlpga,
-        Mnemonic::Invlpgb,
-        Mnemonic::Kaddw,
-        Mnemonic::Kandw,
-        Mnemonic::Kmovb,
-        Mnemonic::Kmovd,
-        Mnemonic::Kmovw,
-        Mnemonic::Knotb,
-        Mnemonic::Korb,
-        Mnemonic::Kortestb,
-        Mnemonic::Korw,
-        Mnemonic::Ktestw,
-        Mnemonic::Kxnorb,
-        Mnemonic::Kxnorw,
-        Mnemonic::Kxorb,
-        Mnemonic::Monitor,
-        Mnemonic::Monitorx,
-        Mnemonic::Mwait,
-        Mnemonic::Mwaitx,
-        Mnemonic::Pconfig,
-        Mnemonic::Rdpkru,
-        Mnemonic::Rdpru,
-        Mnemonic::Rdtscp,
-        Mnemonic::Serialize,
-        Mnemonic::Skinit,
-        Mnemonic::Stac,
-        Mnemonic::Stgi,
-        Mnemonic::Sysret,
-        Mnemonic::Tlbsync,
-        Mnemonic::Vaddpd,
-        Mnemonic::Vaddps,
-        Mnemonic::Vaddsd,
-        Mnemonic::Vaddss,
-        Mnemonic::Vaddsubpd,
-        Mnemonic::Vaddsubps,
-        Mnemonic::Vaesenclast,
-        Mnemonic::Vaesimc,
-        Mnemonic::Vandnpd,
-        Mnemonic::Vandnps,
-        Mnemonic::Vandpd,
-        Mnemonic::Vandps,
-        Mnemonic::Vblendmps,
-        Mnemonic::Vblendpd,
-        Mnemonic::Vcmppd,
-        Mnemonic::Vcmpps,
-        Mnemonic::Vcmpsd,
-        Mnemonic::Vcmpss,
-        Mnemonic::Vcomisd,
-        Mnemonic::Vcomiss,
-        Mnemonic::Vcvtdq2pd,
-        Mnemonic::Vcvtdq2ps,
-        Mnemonic::Vcvtpd2dq,
-        Mnemonic::Vcvtpd2ps,
-        Mnemonic::Vcvtps2dq,
-        Mnemonic::Vcvtps2pd,
-        Mnemonic::Vcvtsd2si,
-        Mnemonic::Vcvtsd2ss,
-        Mnemonic::Vcvtsi2sd,
-        Mnemonic::Vcvtsi2ss,
-        Mnemonic::Vcvtss2sd,
-        Mnemonic::Vcvtss2si,
-        Mnemonic::Vcvttpd2dq,
-        Mnemonic::Vcvttps2dq,
-        Mnemonic::Vcvttsd2si,
-        Mnemonic::Vcvttsd2usi,
-        Mnemonic::Vcvttss2si,
-        Mnemonic::Vcvtudq2ph,
-        Mnemonic::Vdivpd,
-        Mnemonic::Vdivps,
-        Mnemonic::Vdivsd,
-        Mnemonic::Vdivss,
-        Mnemonic::Vfmadd132pd,
-        Mnemonic::Vfmaddcsh,
-        Mnemonic::Vfmaddsub132ps,
-        Mnemonic::Vfmaddsub231ph,
-        Mnemonic::Vfmaddsubps,
-        Mnemonic::Vfmsub132ps,
-        Mnemonic::Vfmsub132sd,
-        Mnemonic::Vfmsubadd231ps,
-        Mnemonic::Vfmsubsd,
-        Mnemonic::Vfnmadd213ps,
-        Mnemonic::Vfnmsub213pd,
-        Mnemonic::Vfrczpd,
-        Mnemonic::Vfrczps,
-        Mnemonic::Vfrczsd,
-        Mnemonic::Vhaddpd,
-        Mnemonic::Vhaddps,
-        Mnemonic::Vhsubpd,
-        Mnemonic::Vhsubps,
-        Mnemonic::Vlddqu,
-        Mnemonic::Vmaskmovdqu,
-        Mnemonic::Vmaxpd,
-        Mnemonic::Vmaxps,
-        Mnemonic::Vmaxsd,
-        Mnemonic::Vmaxss,
-        Mnemonic::Vmcall,
-        Mnemonic::Vmfunc,
-        Mnemonic::Vminpd,
-        Mnemonic::Vminps,
-        Mnemonic::Vminsd,
-        Mnemonic::Vminss,
-        Mnemonic::Vmlaunch,
-        Mnemonic::Vmload,
-        Mnemonic::Vmmcall,
-        Mnemonic::Vmovapd,
-        Mnemonic::Vmovaps,
-        Mnemonic::Vmovd,
-        Mnemonic::Vmovddup,
-        Mnemonic::Vmovdqa,
-        Mnemonic::Vmovdqu,
-        Mnemonic::Vmovhpd,
-        Mnemonic::Vmovhps,
-        Mnemonic::Vmovlpd,
-        Mnemonic::Vmovlps,
-        Mnemonic::Vmovmskpd,
-        Mnemonic::Vmovmskps,
-        Mnemonic::Vmovntdq,
-        Mnemonic::Vmovntpd,
-        Mnemonic::Vmovq,
-        Mnemonic::Vmovsd,
-        Mnemonic::Vmovshdup,
-        Mnemonic::Vmovsldup,
-        Mnemonic::Vmovss,
-        Mnemonic::Vmovupd,
-        Mnemonic::Vmovups,
-        Mnemonic::Vmresume,
-        Mnemonic::Vmrun,
-        Mnemonic::Vmsave,
-        Mnemonic::Vmulpd,
-        Mnemonic::Vmulps,
-        Mnemonic::Vmulsd,
-        Mnemonic::Vmulss,
-        Mnemonic::Vmxoff,
-        Mnemonic::Vorpd,
-        Mnemonic::Vorps,
-        Mnemonic::Vpabsd,
-        Mnemonic::Vpackssdw,
-        Mnemonic::Vpacksswb,
-        Mnemonic::Vpackuswb,
-        Mnemonic::Vpaddb,
-        Mnemonic::Vpaddd,
-        Mnemonic::Vpaddq,
-        Mnemonic::Vpaddsb,
-        Mnemonic::Vpaddsw,
-        Mnemonic::Vpaddusb,
-        Mnemonic::Vpaddusw,
-        Mnemonic::Vpaddw,
-        Mnemonic::Vpand,
-        Mnemonic::Vpandn,
-        Mnemonic::Vpavgb,
-        Mnemonic::Vpavgw,
-        Mnemonic::Vpcmov,
-        Mnemonic::Vpcmpeqb,
-        Mnemonic::Vpcmpeqd,
-        Mnemonic::Vpcmpeqw,
-        Mnemonic::Vpcmpgtb,
-        Mnemonic::Vpcmpgtd,
-        Mnemonic::Vpcmpgtw,
-        Mnemonic::Vpcomb,
-        Mnemonic::Vpcomd,
-        Mnemonic::Vpdpwusd,
-        Mnemonic::Vpextrd,
-        Mnemonic::Vphaddd,
-        Mnemonic::Vphaddubq,
-        Mnemonic::Vphaddubw,
-        Mnemonic::Vpinsrw,
-        Mnemonic::Vpmacsdd,
-        Mnemonic::Vpmacsdql,
-        Mnemonic::Vpmadcsswd,
-        Mnemonic::Vpmadd52luq,
-        Mnemonic::Vpmaddwd,
-        Mnemonic::Vpmaxsb,
-        Mnemonic::Vpmaxsw,
-        Mnemonic::Vpmaxub,
-        Mnemonic::Vpminsw,
-        Mnemonic::Vpminub,
-        Mnemonic::Vpminud,
-        Mnemonic::Vpmovmskb,
-        Mnemonic::Vpmovqw,
-        Mnemonic::Vpmovsxbd,
-        Mnemonic::Vpmovzxbq,
-        Mnemonic::Vpmulhrsw,
-        Mnemonic::Vpmulhuw,
-        Mnemonic::Vpmulhw,
-        Mnemonic::Vpmullw,
-        Mnemonic::Vpmuludq,
-        Mnemonic::Vpor,
-        Mnemonic::Vpperm,
-        Mnemonic::Vprolvd,
-        Mnemonic::Vprotb,
-        Mnemonic::Vprotd,
-        Mnemonic::Vprotw,
-        Mnemonic::Vpsadbw,
-        Mnemonic::Vpshad,
-        Mnemonic::Vpshaw,
-        Mnemonic::Vpshlb,
-        Mnemonic::Vpshld,
-        Mnemonic::Vpshlq,
-        Mnemonic::Vpshufd,
-        Mnemonic::Vpshufhw,
-        Mnemonic::Vpshuflw,
-        Mnemonic::Vpsignd,
-        Mnemonic::Vpslld,
-        Mnemonic::Vpslldq,
-        Mnemonic::Vpsllq,
-        Mnemonic::Vpsllw,
-        Mnemonic::Vpsrad,
-        Mnemonic::Vpsraw,
-        Mnemonic::Vpsrld,
-        Mnemonic::Vpsrlq,
-        Mnemonic::Vpsrlw,
-        Mnemonic::Vpsubb,
-        Mnemonic::Vpsubd,
-        Mnemonic::Vpsubq,
-        Mnemonic::Vpsubsb,
-        Mnemonic::Vpsubsw,
-        Mnemonic::Vpsubusb,
-        Mnemonic::Vpsubusw,
-        Mnemonic::Vpsubw,
-        Mnemonic::Vptestmd,
-        Mnemonic::Vpunpckhbw,
-        Mnemonic::Vpunpckhdq,
-        Mnemonic::Vpunpckhqdq,
-        Mnemonic::Vpunpckhwd,
-        Mnemonic::Vpunpcklbw,
-        Mnemonic::Vpunpckldq,
-        Mnemonic::Vpunpcklqdq,
-        Mnemonic::Vpunpcklwd,
-        Mnemonic::Vpxor,
-        Mnemonic::Vrcpps,
-        Mnemonic::Vrcpsh,
-        Mnemonic::Vrcpss,
-        Mnemonic::Vrsqrtps,
-        Mnemonic::Vrsqrtss,
-        Mnemonic::Vshufpd,
-        Mnemonic::Vshufps,
-        Mnemonic::Vsqrtpd,
-        Mnemonic::Vsqrtps,
-        Mnemonic::Vsqrtsd,
-        Mnemonic::Vsqrtss,
-        Mnemonic::Vsubpd,
-        Mnemonic::Vsubps,
-        Mnemonic::Vsubsd,
-        Mnemonic::Vsubss,
-        Mnemonic::Vtestpd,
-        Mnemonic::Vucomisd,
-        Mnemonic::Vucomiss,
-        Mnemonic::Vunpckhpd,
-        Mnemonic::Vunpckhps,
-        Mnemonic::Vunpcklpd,
-        Mnemonic::Vunpcklps,
-        Mnemonic::Vxorpd,
-        Mnemonic::Vxorps,
-        Mnemonic::Vzeroall,
-        Mnemonic::Vzeroupper,
-        Mnemonic::Wrmsrns,
-        Mnemonic::Wrpkru,
-        Mnemonic::Xabort,
-        Mnemonic::Xbegin,
-        Mnemonic::Xend,
-        Mnemonic::Xgetbv,
-        Mnemonic::Xsetbv,
-        Mnemonic::Xtest,
-
-    ]
-};
 
 #[test]
 fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
@@ -321,9 +46,12 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
     let mut error_ct = 0;
 
     // Create the instruction fuzzer.
-    let mut fuzzer = InstructionFuzzer::new(CpuType::Intel80386);
+    let fuzzer = InstructionFuzzer::new(CpuType::Intel80386);
     let options = FuzzerOptions {
-        segment_size: rng.random_bool(0.5).then_some(SegmentSize::Segment32).unwrap_or(SegmentSize::Segment16),
+        segment_size: rng
+            .random_bool(0.5)
+            .then_some(SegmentSize::Segment32)
+            .unwrap_or(SegmentSize::Segment16),
         seed: 0xDEADBEEF,
         opcode_range: Some(0x00u16..=0x0FFFu16),
         extension_range: Some(0..=7),
@@ -333,7 +61,6 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     for run_no in 0..FUZZ_TEST_COUNT {
-
         // Get a random instruction for 386
         let instruction = fuzzer.random_instruction(&mut rng, &options)?;
 
@@ -343,7 +70,12 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
 
         // Coin toss between 16 and 32 bit mode
         let wide = rng.random_bool(0.5);
-        let (bitness, segment_size) = if wide { (32, SegmentSize::Segment32) } else { (16, SegmentSize::Segment16 ) };
+        let (bitness, segment_size) = if wide {
+            (32, SegmentSize::Segment32)
+        }
+        else {
+            (16, SegmentSize::Segment16)
+        };
 
         // Decode instruction with iced.
         let mut decoder = iced_x86::Decoder::new(bitness, &iced_decode_buffer, iced_decoder_opts);
@@ -352,7 +84,7 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         // Get iced string.
         let mut iced_str = format_iced_instruction(&iced_i);
         // Replace certain funky mnemonics with "bad"
-        if REJECT_MNEMONICS.contains(&iced_i.mnemonic()) {
+        if !is_valid_mnemonic(iced_i.mnemonic()) {
             iced_str = "(bad)".to_string();
         }
 
@@ -378,7 +110,15 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         else if iced_str != marty_str {
             eprintln!(
                 "Discrepancy found on run {:06}: segment_size: {:<10?} iced: {:<40} marty: {:<40} op_ct: {} c: {} d: {} as: {:?} opcodes: {:X?}",
-                run_no, segment_size, iced_display, marty_display, marty_i.operand_ct(), marty_i.is_complete, marty_i.disambiguate, marty_i.address_size, &instruction.bytes
+                run_no,
+                segment_size,
+                iced_display,
+                marty_display,
+                marty_i.operand_ct(),
+                marty_i.is_complete,
+                marty_i.disambiguate,
+                marty_i.address_size,
+                &instruction.bytes
             );
             error_ct += 1;
         }
@@ -390,6 +130,4 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
     else {
         Err(format!("{}/{} discrepancies found", error_ct, FUZZ_TEST_COUNT).into())
     }
-
-
 }

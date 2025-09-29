@@ -35,16 +35,26 @@
 
 */
 
+use crate::{
+    VX0::{NecVx0, gdr::GdrEntry},
+    byte_reader::ByteReader,
+    cpu_common::{
+        Displacement,
+        OperandSize,
+        OperandType,
+        OperandType::AddressingMode16,
+        PrefixFlags,
+        Register8,
+        Register16,
+    },
+    error::DecodeError,
+    instruction::Instruction,
+    mnemonic::Mnemonic,
+    modrm16::ModRmByte16,
+};
 use std::{error::Error, fmt::Display, io};
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{Displacement, OperandSize, OperandType, PrefixFlags, Register16, Register8};
-use crate::cpu_common::OperandType::AddressingMode16;
-use crate::instruction::Instruction;
-use crate::mnemonic::Mnemonic;
-use crate::modrm16::ModRmByte16;
-use crate::VX0::gdr::GdrEntry;
-use crate::VX0::NecVx0;
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Default)]
 pub struct InstTemplate {
     pub grp: u8,
@@ -55,6 +65,7 @@ pub struct InstTemplate {
     pub operand2: OperandTemplate,
     pub operand3: OperandTemplate,
 }
+
 impl InstTemplate {
     pub(crate) const fn constdefault() -> Self {
         Self {
@@ -92,9 +103,7 @@ pub enum OperandTemplate {
     FixedRegister16(Register16),
     Register16Indirect(Register16),
     FarAddress,
-    M16Pair,
 }
-
 
 impl OperandTemplate {
     #[inline(always)]
@@ -176,7 +185,7 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
                 Ok(OperandType::FarPointer16(segment, offset))
             }
-            _ => Ok(OperandType::NoOperand)
+            _ => Ok(OperandType::NoOperand),
         }
     }
 }
@@ -220,10 +229,8 @@ macro_rules! inst_skip {
     ($init:ident, $ct:literal) => {
         $init.idx += $ct;
     };
-
 }
 macro_rules! inst {
-
     ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr) => {
         $init.table[$init.idx] = InstTemplate {
             grp: $grp,
@@ -232,12 +239,12 @@ macro_rules! inst {
             mnemonic: Mnemonic::$m,
             operand1: $o1,
             operand2: $o2,
-            operand3: OperandTemplate::NoOperand
+            operand3: OperandTemplate::NoOperand,
         };
         $init.idx += 1;
     };
 
-        ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr, $o3:expr) => {
+    ($opcode:literal, $init:ident,  $grp:literal, $gdr:literal, $mc:literal, $m:ident, $o1:expr, $o2:expr, $o3:expr) => {
         $init.table[$init.idx] = InstTemplate {
             grp: $grp,
             gdr: GdrEntry($gdr),
@@ -255,14 +262,14 @@ pub const REGULAR_OPS_LEN: usize = 368;
 pub const TOTAL_OPS_LEN: usize = REGULAR_OPS_LEN + 256;
 
 pub struct TableInitializer {
-    pub idx: usize,
+    pub idx:   usize,
     pub table: [InstTemplate; TOTAL_OPS_LEN],
 }
 
 impl TableInitializer {
     const fn new() -> Self {
         Self {
-            idx: 0,
+            idx:   0,
             table: [InstTemplate::constdefault(); TOTAL_OPS_LEN],
         }
     }
@@ -697,7 +704,7 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
 
 impl NecVx0 {
     #[rustfmt::skip]
-    pub fn decode(bytes: &mut impl ByteReader) -> Result<Instruction, Box<dyn std::error::Error>> {
+    pub fn decode(bytes: &mut impl ByteReader) -> Result<Instruction, DecodeError> {
 
         let mut instruction = Instruction::default();
 

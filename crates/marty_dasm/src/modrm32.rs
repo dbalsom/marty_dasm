@@ -21,9 +21,27 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{AddressOffset32, Displacement, Register16, Register32, Register8, REGISTER16_LUT, REGISTER32_LUT, REGISTER8_LUT, SREGISTER16_LUT, SREGISTER32_LUT, CREGISTER_LUT, DREGISTER_LUT, DebugRegister, ControlRegister, SREGISTER16_LUT_386};
-use crate::sib::SibByte;
+use crate::{
+    byte_reader::ByteReader,
+    cpu_common::{
+        AddressOffset32,
+        CREGISTER_LUT,
+        ControlRegister,
+        DREGISTER_LUT,
+        DebugRegister,
+        Displacement,
+        REGISTER8_LUT,
+        REGISTER16_LUT,
+        REGISTER32_LUT,
+        Register8,
+        Register16,
+        Register32,
+        SREGISTER16_LUT,
+        SREGISTER16_LUT_386,
+        SREGISTER32_LUT,
+    },
+    sib::SibByte,
+};
 
 #[derive(Copy, Clone)]
 pub struct ModRmByte32 {
@@ -34,7 +52,6 @@ pub struct ModRmByte32 {
     disp: Displacement,
     addressing_mode: AddressOffset32,
 }
-
 
 const MODRM32_TABLE: [ModRmByte32; 256] = {
     let mut table: [ModRmByte32; 256] = [ModRmByte32 {
@@ -171,11 +188,13 @@ impl ModRmByte32 {
     }
 
     /// Read the modrm byte and look up the appropriate value from the modrm table.
-    pub fn read(bytes: &mut impl ByteReader, instruction_bytes: &mut Vec<u8>) -> Result<(ModRmByte32, Option<SibByte>), Box<dyn std::error::Error>> {
+    pub fn read(
+        bytes: &mut impl ByteReader,
+        instruction_bytes: &mut Vec<u8>,
+    ) -> Result<(ModRmByte32, Option<SibByte>), Box<dyn std::error::Error>> {
         let raw_modrm_byte = bytes.read_u8()?;
         let mut modrm = ModRmByte32::from_byte(raw_modrm_byte);
         instruction_bytes.push(raw_modrm_byte);
-
 
         let sib_byte_raw = if modrm.has_sib() {
             // SIB byte follows modrm byte
@@ -206,7 +225,7 @@ impl ModRmByte32 {
                     instruction_bytes.extend_from_slice(&disp.to_le_bytes());
                     read_displacement = Some(Displacement::Disp32(disp as i32));
                 }
-                _ => { /* No displacement to read */ },
+                _ => { /* No displacement to read */ }
             }
         }
 
@@ -238,9 +257,23 @@ impl ModRmByte32 {
         self.b_mod
     }
 
+    /// Set the 'mod' field (top two bits) of the modrm byte. The argument is assumed to be
+    /// an un-shifted 2 bit value (0-3).
+    pub fn set_mod(&mut self, m: u8) {
+        let new_byte = (self.byte & 0b0011_1111) | ((m & 0x03) << 6);
+        *self = ModRmByte32::from_byte(new_byte);
+    }
+
     #[inline(always)]
     pub fn reg_value(&self) -> u8 {
         self.b_reg
+    }
+
+    /// Set the 'reg' field (middle three bits) of the modrm byte. The argument is assumed to be
+    /// an un-shifted 3 bit value (0-7).
+    pub fn set_reg(&mut self, reg: u8) {
+        let new_byte = (self.byte & 0b1100_0111) | ((reg & 0x07) << 3);
+        *self = ModRmByte32::from_byte(new_byte);
     }
 
     // Interpret the 'R/M' field as an 8 bit register selector
@@ -250,7 +283,8 @@ impl ModRmByte32 {
     }
     // Interpret the 'R/M' field as a 16 bit register selector
     #[inline(always)]
-    pub fn op1_reg16(&self) -> Register16 { REGISTER16_LUT[self.b_rm as usize]
+    pub fn op1_reg16(&self) -> Register16 {
+        REGISTER16_LUT[self.b_rm as usize]
     }
     // Interpret the 'R/M' field as a 32 bit register selector
     #[inline(always)]
@@ -266,13 +300,6 @@ impl ModRmByte32 {
     #[inline(always)]
     pub fn op2_reg16(&self) -> Register16 {
         REGISTER16_LUT[self.b_reg as usize]
-    }
-
-    /// Set the 'reg' field (middle three bits) of the modrm byte. The argument is assumed to be
-    /// an un-shifted 3 bit value (0-7).
-    pub fn set_reg(&mut self, reg: u8) {
-        self.byte = (self.byte & 0b1100_0111) | ((reg & 0x07) << 3);
-        self.b_reg = reg & 0x07;
     }
 
     // Interpret the 'REG' field as a 32 bit register selector

@@ -24,20 +24,20 @@
 mod instruction;
 
 #[allow(non_snake_case)]
-mod i808X;
-pub mod prelude;
+mod VX0;
+mod byte_reader;
 mod cpu_common;
+pub mod decoder;
+pub mod enums;
+mod error;
+pub mod formatter;
+mod i80286;
+mod i80386;
+#[allow(non_snake_case)]
+mod i808X;
 mod mnemonic;
 pub mod modrm16;
 pub mod modrm32;
-mod sib;
-mod byte_reader;
-mod i80286;
-#[allow(non_snake_case)]
-mod VX0;
-pub mod formatter;
-pub mod decoder;
-mod i80386;
 mod opcode;
-pub mod enums;
-
+pub mod prelude;
+mod sib;

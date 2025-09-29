@@ -199,6 +199,13 @@ impl ModRmByte16 {
         self.b_mod
     }
 
+    /// Set the 'mod' field (top two bits) of the modrm byte. The argument is assumed to be
+    /// an un-shifted 2 bit value (0-3).
+    pub fn set_mod(&mut self, m: u8) {
+        let new_byte = (self.byte & 0b0011_1111) | ((m & 0x03) << 6);
+        *self = ModRmByte16::from_byte(new_byte);
+    }
+
     #[inline(always)]
     pub fn reg_value(&self) -> u8 {
         self.b_reg
@@ -207,8 +214,8 @@ impl ModRmByte16 {
     /// Set the 'reg' field (middle three bits) of the modrm byte. The argument is assumed to be
     /// an un-shifted 3 bit value (0-7).
     pub fn set_reg(&mut self, reg: u8) {
-        self.byte = (self.byte & 0b1100_0111) | ((reg & 0x07) << 3);
-        self.b_reg = reg & 0x07;
+        let new_byte = (self.byte & 0b1100_0111) | ((reg & 0x07) << 3);
+        *self = ModRmByte16::from_byte(new_byte);
     }
 
     // Interpret the 'R/M' field as an 8 bit register selector

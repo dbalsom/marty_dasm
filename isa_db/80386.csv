@@ -1,4 +1,4 @@
-op,g,ex,rm,ud,pf,66,67,fc,fpu,pm,uc,fb,w,d,sr,ar,nea,io,flds,mc,mnemonic,dw_mnemonic,alt_names,lck,rep,so,reg,m,copt1,copt2,copt3,gop1,gop2,gop3,f_tested,f_mod,f_def,f_undef,f_values,exceptions,description
+﻿op,g,ex,rm,ud,pf,66,67,fc,fpu,pm,uc,fb,w,d,sr,ar,nea,io,flds,mc,mnemonic,dw_mnemonic,alt_names,lck,rep,so,reg,m,copt1,copt2,copt3,gop1,gop2,gop3,f_tested,f_mod,f_def,f_undef,f_values,exceptions,description
 00,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,dw,,ADD,,,1,0,1,1,1,r/m8,r8,,Eb,Gb,,,o..szapc,o..szapc,,,,Add
 01,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,dW,,ADD,,,1,0,1,1,1,r/m16/32,r16/32,,Ev,Gv,,,o..szapc,o..szapc,,,,Add
 02,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,ADD,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,o..szapc,o..szapc,,,,Add
@@ -167,7 +167,7 @@ op,g,ex,rm,ud,pf,66,67,fc,fpu,pm,uc,fb,w,d,sr,ar,nea,io,flds,mc,mnemonic,dw_mnem
 8A,,,,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,Dw,,MOV,,,0,0,1,1,1,r8,r/m8,,Gb,Eb,,,,,,,,"Move, (Reverse direction of 0x88)"
 8B,,,,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,DW,,MOV,,,0,0,1,1,1,r16/32,r/m16/32,,Gvqp,Evqp,,,,,,,,"Move, (Reverse direction of 0x89)"
 8C,,,,0,0,1,1,0,0,0,1,0,0,1,1,0,1,0,d,,MOV,,,0,0,1,1,1,r/m16,Sreg,,Mw,Sw,,,,,,,,Move *First operand is Mw or Rvqp
-8D,,,,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,,,LEA,,,0,0,1,1,1,,,,Gvqp,M,,,,,,,,Load Effective Address
+8D,,,,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,,,LEA,,,0,0,1,0,1,,,,Gvqp,M,,,,,,,,Load Effective Address
 8E,,,,0,0,1,1,0,0,0,1,0,0,1,1,0,0,0,D,,MOV,,,0,0,1,1,1,Sreg,r/m16,,Sw,Ew,,,,,,,,Move
 8F,,0,,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,W,,POP,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Pop a Value from the Stack
 90,,,,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,r,,XCHG,,NOP,0,0,0,0,0,reg16,AX,,Zvqp,AX,,,,,,,,Exchange Register AX with Register AX (NOP)
@@ -399,9 +399,9 @@ FE,4,6,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
 FE,4,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,Undefined
 FF,5,0,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,INC,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,o..szap.,o..szap.,,,,Increment by 1
 FF,5,1,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,DEC,,,1,0,1,1,1,r/m16/32,,,Evqp,,,,o..szap.,o..szap.,,,,Decrement by 1
-FF,5,2,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,CALL,,,0,0,1,0,1,r/m16/32,,,Ev,,,,,,,,,Call Procedure
+FF,5,2,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,CALL,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Call Procedure
 FF,5,3,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,CALLF,,,0,0,1,0,1,r/m16/32,,,Mptp,,,,,,,,,Call Procedure
-FF,5,4,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,JMP,,,0,0,1,0,1,r/m16/32,,,Ev,,,,,,,,,Jump
+FF,5,4,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,JMP,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Jump
 FF,5,5,,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,W,,JMPF,,,0,0,1,0,1,r/m16/32,,,Mptp,,,,,,,,,Jump
 FF,5,6,,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,W,,PUSH,,,0,0,1,1,1,r/m16/32,,,Ev,,,,,,,,,Push Word onto the Stack
 FF,5,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
@@ -413,11 +413,11 @@ FF,5,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
 0F00,6,5,,0,0,,,0,0,0,,,,,,,,0,,,VERW,,,0,0,1,1,1,r/m16,,,,,,,....z...,,,,,Verify a Segment for Writing
 0F00,6,6,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
 0F00,6,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
-0F01,7,0,,0,0,,,0,0,1,,,,,,,,0,,,SGDT,,,0,0,1,1,1,m,GDTR,,,,,,,,,,,Store Global Descriptor Table Register
-0F01,7,1,,0,0,,,0,0,0,,,,,,,,0,,,SIDT,,,0,0,1,1,1,m,IDTR,,,,,,,,,,,Store Interrupt Descriptor Table Register
-0F01,7,2,,0,0,,,0,0,0,,,,,,,,0,,,LGDT,,,0,0,1,1,1,GDTR,m,,,,,,,,,,,Load Global Descriptor Table Register
-0F01,7,3,,0,0,,,0,0,0,,,,,,,,0,,,LIDT,,,0,0,1,1,1,IDTR,m,,,,,,,,,,,Load Interrupt Descriptor Table Register
-0F01,7,4,,0,0,,,0,0,0,,,,,,,,0,,,SMSW,,,0,0,1,1,1,r/m16,MSW,,,,,,,,,,,Store Machine Status Word
+0F01,7,0,,0,0,,,0,0,1,,,,,,,,0,,,SGDT,,,0,0,1,0,1,m,GDTR,,,,,,,,,,,Store Global Descriptor Table Register
+0F01,7,1,,0,0,,,0,0,0,,,,,,,,0,,,SIDT,,,0,0,1,0,1,m,IDTR,,,,,,,,,,,Store Interrupt Descriptor Table Register
+0F01,7,2,,0,0,,,0,0,0,,,,,,,,0,,,LGDT,,,0,0,1,0,1,GDTR,m,,,,,,,,,,,Load Global Descriptor Table Register
+0F01,7,3,,0,0,,,0,0,0,,,,,,,,0,,,LIDT,,,0,0,1,0,1,IDTR,m,,,,,,,,,,,Load Interrupt Descriptor Table Register
+0F01,7,4,,0,0,,,0,0,0,,,,,,,,0,,,SMSW,,,0,0,1,1,1,r/m16/32,MSW,,,,,,,,,,,Store Machine Status Word
 0F01,7,5,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,,,,,,,,,,,,,,,6,Undefined
 0F01,7,6,,0,0,,,0,0,0,,,,,,,,0,,,LMSW,,,0,0,1,1,1,MSW,r/m16,,,,,,,,,,,Load Machine Status Word
 0F01,7,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,,,,,,,,,,,,,,,6,Undefined
@@ -467,24 +467,24 @@ FF,5,7,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,6,Undefined
 0FA1,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,POP,,,0,0,0,0,0,FS,,,,,,,,,,,,Pop a Value from the Stack
 0FA2,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
 0FA3,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BT,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test
-0FA4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,imm8,,,,,,,,,,,Double Precision Shift Left
-0FA5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,CL,,,,,,,,,,,Double Precision Shift Left
+0FA4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,r16/32,imm8,,,,,,,,,,Double Precision Shift Left
+0FA5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHLD,,,0,0,1,1,1,r/m16/32,r16/32,CL,,,,,,,,,,Double Precision Shift Left
 0FA6,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
 0FA7,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
 0FA8,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,PUSH,,,0,0,0,0,0,GS,,,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
 0FA9,,,,0,0,1,0,0,0,0,,,,,,,1,0,,,POP,,,0,0,0,0,0,GS,,,,,,,,,,,,Pop a Value from the Stack
 0FAA,,,,0,0,0,0,1,0,0,,,,,,,1,0,,,RSM,,,0,0,0,0,0,,,,,,,,,,,,,Resume from System Management Mode
 0FAB,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BTS,,,1,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test and Set
-0FAC,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Double Precision Shift Right
-0FAD,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,CL,,,,,,,,,,,Double Precision Shift Right
+0FAC,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,r16/32,imm8,,,,,,,,,,Double Precision Shift Right
+0FAD,,,,0,0,1,1,0,0,0,,,,,,,,0,,,SHRD,,,0,0,1,1,1,r/m16/32,r16/32,CL,,,,,,,,,,Double Precision Shift Right
 0FAE,,,,1,0,0,,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
-0FAF,,,,0,0,1,1,0,0,0,,,,,,,,0,,,IMUL,,,0,0,1,1,1,,,,,,,,,,,,,Signed Multiply
+0FAF,,,,0,0,1,1,0,0,0,,,,,,,,0,,,IMUL,,,0,0,1,1,1,"	r16/32","	r/m16/32",,,,,,,,,,,Signed Multiply
 0FB0,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
 0FB1,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined
-0FB2,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LSS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
+0FB2,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LSS,,,0,0,1,0,1,r16/32,m16:16/32,,,,,,,,,,,Load Far Pointer
 0FB3,,,,0,0,1,1,0,0,0,,,,,,,,0,,,BTR,,,0,0,1,1,1,r/m16/32,r16/32,,,,,,,,,,,Bit Test and Reset
-0FB4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LFS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
-0FB5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LGS,,,0,0,1,1,1,,,,,,,,,,,,,Load Far Pointer
+0FB4,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LFS,,,0,0,1,0,1,r16/32,m16:16/32,,,,,,,,,,,Load Far Pointer
+0FB5,,,,0,0,1,1,0,0,0,,,,,,,,0,,,LGS,,,0,0,1,0,1,r16/32,m16:16/32,,,,,,,,,,,Load Far Pointer
 0FB6,,,,0,0,1,1,0,0,0,,,,,,,1,0,,,MOVZX,,,0,0,1,1,1,r16/32,r/m8,,,,,,,,,,,Move with Zero-Extend
 0FB7,,,,0,0,1,1,0,0,0,,,,,,,1,0,,,MOVZX,,,0,0,1,1,1,r16/32,r/m16,,,,,,,,,,,Move with Zero-Extend
 0FB8,,,,1,0,0,0,0,0,0,,,,,,,,,,,,,,0,0,0,0,0,,,,,,,,,,,,6,Undefined

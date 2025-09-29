@@ -20,10 +20,8 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use std::collections::HashMap;
-use std::str::FromStr;
-use marty_dasm::decoder::CpuType;
-use marty_dasm::prelude::Opcode;
+use marty_dasm::{decoder::CpuType, prelude::Opcode};
+use std::{collections::HashMap, str::FromStr};
 
 use serde::Deserialize;
 
@@ -70,7 +68,7 @@ where
     }
 }
 
-#[derive (Debug, Clone, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct IsaRecord {
     #[serde(skip)]
     pub opcode: Opcode,
@@ -115,17 +113,15 @@ pub struct IsaDB {
     pub record_hash: HashMap<Opcode, usize>,
 }
 
-#[derive (Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct IterFilter {
     pub accept_fpu: bool,
     pub accept_protected: bool,
     pub accept_undefined: bool,
 }
 
-
 impl IsaDB {
     pub fn new(cpu_type: CpuType) -> Self {
-
         let mut csv_reader = match cpu_type {
             CpuType::Intel80386 => csv::Reader::from_reader(ISA386.as_ref()),
             _ => panic!("Unsupported CPU type for ISA DB: {:?}", cpu_type),
@@ -137,7 +133,6 @@ impl IsaDB {
         for result in csv_reader.deserialize::<IsaRecord>() {
             match result {
                 Ok(mut record) => {
-
                     record.init();
 
                     let index = records.len();
@@ -158,7 +153,11 @@ impl IsaDB {
         //              record.extension.map_or("".to_string(), |e| e.to_string()),
         //              record.is_fpu );
         // }
-        IsaDB { cpu_type, records, record_hash }
+        IsaDB {
+            cpu_type,
+            records,
+            record_hash,
+        }
     }
 
     pub fn opcode(&self, opcode: Opcode) -> Option<&IsaRecord> {
@@ -166,11 +165,10 @@ impl IsaDB {
     }
 
     pub fn opcode_iter(&self, filter: IterFilter) -> impl Iterator<Item = &IsaRecord> {
-
         self.records.iter().filter(move |record| {
-            (filter.accept_fpu || !record.is_fpu) &&
-                (filter.accept_undefined || !record.is_undefined) &&
-                (filter.accept_protected || !record.is_protected)
+            (filter.accept_fpu || !record.is_fpu)
+                && (filter.accept_undefined || !record.is_undefined)
+                && (filter.accept_protected || !record.is_protected)
         })
     }
 }

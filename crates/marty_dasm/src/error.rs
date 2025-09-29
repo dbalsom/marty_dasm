@@ -20,9 +20,19 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-pub mod db;
-mod error;
-pub mod fuzzer;
-mod modrm;
-mod modrm_fuzzer;
-pub mod types;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum DecodeError {
+    #[error("Invalid options provided: {0}")]
+    InvalidOptions(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Unknown error")]
+    Unknown,
+}
