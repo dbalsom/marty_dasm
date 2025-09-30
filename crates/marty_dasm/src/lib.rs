@@ -41,3 +41,5 @@ pub mod modrm32;
 mod opcode;
 pub mod prelude;
 mod sib;
+
+pub use prelude::*;
