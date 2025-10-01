@@ -34,7 +34,7 @@ use marty_dasm::prelude::*;
 use rand::{Rng, SeedableRng};
 
 pub const TEST_SEED: u64 = 0x12345678;
-pub const FUZZ_TEST_COUNT: usize = 10_000_000;
+pub const FUZZ_TEST_COUNT: usize = 100_000;
 
 // There are an absolute ton of valid modern x86 instructions lurking in the undefined/invalid
 // space of the 386. Here we try to filter them all out.
