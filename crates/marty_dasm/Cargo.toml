@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 num-traits.workspace = true
 thiserror.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
 marty_fuzzer = { path = "../marty_fuzzer" }
@@ -16,4 +17,7 @@ rand_distr = "0.5"
 log = "0.4"
 env_logger = "0.11"
 serde.workspace = true
-csv.workspace = true
+
+[features]
+default = ["use_serde"]
+use_serde = ["serde"]

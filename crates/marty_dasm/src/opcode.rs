@@ -22,6 +22,7 @@
 */
 use std::fmt::Display;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, Hash)]
 pub struct Opcode {
     extended: u16,
