@@ -20,96 +20,12 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
+use std::{collections::HashMap, path::Path, str::FromStr};
+
+use crate::{error::IsaDbError, IsaRecord};
 use marty_dasm::{decoder::CpuType, prelude::Opcode};
-use std::path::Path;
-
-use crate::error::IsaDbError;
-
-use std::{collections::HashMap, str::FromStr};
-
-use serde::Deserialize;
 
 pub const ISA386: &[u8] = include_bytes!("../isa_db/80386.csv");
-
-fn de_hex_u16<'de, D>(de: D) -> Result<u16, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(de)?;
-    let s = s.trim();
-    // Accept "0x1A", "1a", "1A", allow underscores
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
-    let s = s.replace('_', "");
-    u16::from_str_radix(&s, 16).map_err(serde::de::Error::custom)
-}
-
-fn de_ext_u8<'de, D>(de: D) -> Result<Option<u8>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(de)?;
-    let s = s.trim();
-    if s.is_empty() {
-        return Ok(None);
-    }
-    u8::from_str(&s).map(|v| Some(v)).map_err(serde::de::Error::custom)
-}
-
-fn de_bool<'de, D>(de: D) -> Result<bool, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(de)?;
-    let s = s.trim().to_lowercase();
-    // Assume empty is 'false'
-    if s.is_empty() {
-        return Ok(false);
-    }
-    match s.as_str() {
-        "true" | "1" | "y" | "yes" => Ok(true),
-        "false" | "0" | "n" | "no" => Ok(false),
-        _ => Err(serde::de::Error::custom(format!("Invalid boolean value: {}", s))),
-    }
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct IsaRecord {
-    #[serde(skip)]
-    pub opcode: Opcode,
-    #[serde(rename = "op")]
-    #[serde(deserialize_with = "de_hex_u16")]
-    pub opcode_raw: u16,
-    #[serde(rename = "pf")]
-    #[serde(deserialize_with = "de_bool")]
-    pub is_prefix: bool,
-    #[serde(rename = "g")]
-    #[serde(deserialize_with = "de_ext_u8")]
-    pub group: Option<u8>,
-    #[serde(rename = "ex")]
-    #[serde(deserialize_with = "de_ext_u8")]
-    pub extension: Option<u8>,
-    #[serde(rename = "fpu")]
-    #[serde(deserialize_with = "de_bool")]
-    pub is_fpu: bool,
-    #[serde(rename = "ud")]
-    #[serde(deserialize_with = "de_bool")]
-    pub is_undefined: bool,
-    #[serde(rename = "pm")]
-    #[serde(deserialize_with = "de_bool")]
-    pub is_protected: bool,
-    #[serde(rename = "m")]
-    #[serde(deserialize_with = "de_bool")]
-    pub has_modrm: bool,
-    #[serde(rename = "reg")]
-    #[serde(deserialize_with = "de_bool")]
-    pub allow_reg_form: bool,
-}
-
-impl IsaRecord {
-    pub fn init(&mut self) {
-        self.opcode = Opcode::from(self.opcode_raw);
-    }
-}
 
 pub struct IsaDB {
     pub cpu_type: CpuType,
