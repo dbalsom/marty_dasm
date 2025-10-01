@@ -21,11 +21,15 @@
     DEALINGS IN THE SOFTWARE.
 */
 use marty_dasm::{decoder::CpuType, prelude::Opcode};
+use std::path::Path;
+
+use crate::error::IsaDbError;
+
 use std::{collections::HashMap, str::FromStr};
 
 use serde::Deserialize;
 
-pub const ISA386: &[u8] = include_bytes!("../../../isa_db/80386.csv");
+pub const ISA386: &[u8] = include_bytes!("../isa_db/80386.csv");
 
 fn de_hex_u16<'de, D>(de: D) -> Result<u16, D::Error>
 where
@@ -121,10 +125,15 @@ pub struct IterFilter {
 }
 
 impl IsaDB {
-    pub fn new(cpu_type: CpuType) -> Self {
+    pub fn new(cpu_type: CpuType) -> Result<IsaDB, IsaDbError> {
         let mut csv_reader = match cpu_type {
             CpuType::Intel80386 => csv::Reader::from_reader(ISA386.as_ref()),
-            _ => panic!("Unsupported CPU type for ISA DB: {:?}", cpu_type),
+            _ => {
+                return Err(IsaDbError::InvalidOptions(format!(
+                    "Unsupported CPU type: {:?}",
+                    cpu_type
+                )))
+            }
         };
 
         let mut records: Vec<IsaRecord> = Vec::new();
@@ -140,24 +149,44 @@ impl IsaDB {
                     record_hash.insert(records[index].opcode, index);
                 }
                 Err(e) => {
-                    panic!("Error reading CSV: {}", e);
+                    return Err(IsaDbError::IoError(e.into()));
                 }
             }
         }
 
-        // println!("Loaded {} ISA records", records.len());
-        //
-        // for record in &records {
-        //     println!("Opcode: {} Ext: {:>4} is_fpu: {}",
-        //              Opcode::from(record.opcode_raw),
-        //              record.extension.map_or("".to_string(), |e| e.to_string()),
-        //              record.is_fpu );
-        // }
-        IsaDB {
+        Ok(IsaDB {
             cpu_type,
             records,
             record_hash,
+        })
+    }
+
+    pub fn from_file(cpu_type: CpuType, path: impl AsRef<Path>) -> Result<IsaDB, IsaDbError> {
+        let mut csv_reader = csv::Reader::from_path(path.as_ref()).map_err(|e| IsaDbError::IoError(e.into()))?;
+
+        let mut records: Vec<IsaRecord> = Vec::new();
+        let mut record_hash: HashMap<Opcode, usize> = HashMap::new();
+
+        for result in csv_reader.deserialize::<IsaRecord>() {
+            match result {
+                Ok(mut record) => {
+                    record.init();
+
+                    let index = records.len();
+                    records.push(record);
+                    record_hash.insert(records[index].opcode, index);
+                }
+                Err(e) => {
+                    return Err(IsaDbError::IoError(e.into()));
+                }
+            }
         }
+
+        Ok(IsaDB {
+            cpu_type,
+            records,
+            record_hash,
+        })
     }
 
     pub fn opcode(&self, opcode: Opcode) -> Option<&IsaRecord> {

@@ -26,10 +26,10 @@ use std::{
 };
 
 use marty_dasm::{decoder::CpuType, prelude::*};
+use marty_isadb::{db::IterFilter, IsaDB, IsaRecord};
 use rand::{prelude::StdRng, Rng};
 
 use crate::{
-    db::{IsaDB, IsaRecord, IterFilter},
     error::{FuzzerError, FuzzerError::InvalidOptions},
     modrm_fuzzer::ModRmFuzzer,
 };
@@ -90,7 +90,7 @@ pub struct FuzzerInstruction {
 
 impl InstructionFuzzer {
     pub fn new(cpu_type: CpuType) -> Self {
-        let isa_db = IsaDB::new(cpu_type);
+        let isa_db = IsaDB::new(cpu_type).expect("Failed to load ISA database");
 
         InstructionFuzzer { cpu_type, isa_db }
     }

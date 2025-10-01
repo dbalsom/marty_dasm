@@ -2,7 +2,7 @@
 members = [
     "crates/marty_dasm",
     "crates/marty_fuzzer"
-]
+, "crates/marty_isadb"]
 
 resolver = "2"
 default-members = ["crates/marty_dasm"]

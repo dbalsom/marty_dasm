@@ -7,12 +7,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-marty_dasm = { path = "../marty_dasm"}
-iced-x86 = { version = "1.21", default-features = false, features = ["std", "encoder", "decoder", "op_code_info", "nasm", "instr_info", "serde"] }
+marty_dasm = { path = "../marty_dasm" }
+marty_isadb = { path = "../marty_isadb" }
 rand = "0.9"
 rand_distr = "0.5"
 log = "0.4"
 env_logger = "0.11"
-serde.workspace = true
-csv.workspace = true
 thiserror.workspace = true

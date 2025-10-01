@@ -219,7 +219,6 @@ name = "marty_dasm"
 version = "0.1.0"
 dependencies = [
  "colored",
- "csv",
  "env_logger",
  "iced-x86",
  "log",
@@ -235,13 +234,21 @@ dependencies = [
 name = "marty_fuzzer"
 version = "0.1.0"
 dependencies = [
- "csv",
  "env_logger",
- "iced-x86",
  "log",
  "marty_dasm",
+ "marty_isadb",
  "rand",
  "rand_distr",
+ "thiserror",
+]
+
+[[package]]
+name = "marty_isadb"
+version = "0.3.0"
+dependencies = [
+ "csv",
+ "marty_dasm",
  "serde",
  "thiserror",
 ]

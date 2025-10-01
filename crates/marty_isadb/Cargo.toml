@@ -1,0 +1,13 @@
+[package]
+name = "marty_isadb"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+marty_dasm = { path = "../marty_dasm" }
+thiserror.workspace = true
+serde.workspace = true
+csv.workspace = true

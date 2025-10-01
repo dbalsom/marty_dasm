@@ -20,13 +20,19 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
+use thiserror::Error;
 
-mod error;
-pub mod fuzzer;
-mod modrm;
-pub mod modrm_fuzzer;
-pub mod types;
+#[derive(Debug, Error)]
+pub enum IsaDbError {
+    #[error("Invalid options provided: {0}")]
+    InvalidOptions(String),
 
-pub use error::FuzzerError;
-pub use fuzzer::InstructionFuzzer;
-pub use modrm_fuzzer::ModRmFuzzer;
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Unknown error")]
+    Unknown,
+}
