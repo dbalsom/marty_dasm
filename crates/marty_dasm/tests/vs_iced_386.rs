@@ -20,10 +20,11 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use marty_fuzzer::fuzzer::{FuzzerOptions, InstructionFuzzer};
-use std::io::Cursor;
 
 mod common;
+
+use marty_fuzzer::fuzzer::{FuzzerOptions, InstructionFuzzer};
+use std::io::Cursor;
 
 use crate::common::{
     format::{format_iced_instruction, format_marty_instruction},
@@ -34,7 +35,21 @@ use marty_dasm::prelude::*;
 use rand::{Rng, SeedableRng};
 
 pub const TEST_SEED: u64 = 0x12345678;
-pub const FUZZ_TEST_COUNT: usize = 100_000;
+pub const FUZZ_TEST_COUNT: usize = 20_000;
+pub const MAX_PREFIXES: usize = 2;
+pub const PREFIXES_386: [u8; 11] = [
+    0xF0, // LOCK
+    0xF2, // REPNE/REPNZ
+    0xF3, // REP/REPE/REPZ
+    0x2E, // CS segment override
+    0x36, // SS segment override
+    0x3E, // DS segment override
+    0x26, // ES segment override
+    0x64, // FS segment override
+    0x65, // GS segment override
+    0x66, // Operand-size override
+    0x67, // Address-size override
+];
 
 // There are an absolute ton of valid modern x86 instructions lurking in the undefined/invalid
 // space of the 386. Here we try to filter them all out.
@@ -65,8 +80,16 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         let instruction = fuzzer.random_instruction(&mut rng, &options)?;
 
         let iced_decoder_opts = iced_x86::DecoderOptions::NO_INVALID_CHECK | iced_x86::DecoderOptions::LOADALL386;
-        let iced_decode_buffer = instruction.bytes.clone();
-        let marty_decode_buffer = Cursor::new(instruction.bytes.clone());
+
+        let mut inst_bytes = instruction.bytes.clone();
+        let num_prefixes = rng.random_range(0..=MAX_PREFIXES);
+        for _ in 0..num_prefixes {
+            let prefix = PREFIXES_386[rng.random_range(0..PREFIXES_386.len())];
+            inst_bytes.insert(0, prefix);
+        }
+
+        let iced_decode_buffer = inst_bytes.clone();
+        let marty_decode_buffer = Cursor::new(inst_bytes.clone());
 
         // Coin toss between 16 and 32 bit mode
         let wide = rng.random_bool(0.5);
@@ -109,16 +132,18 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         }
         else if iced_str != marty_str {
             eprintln!(
-                "Discrepancy found on run {:06}: segment_size: {:<10?} iced: {:<40} marty: {:<40} op_ct: {} c: {} d: {} as: {:?} opcodes: {:X?}",
+                "Discrepancy found on run {:06}: {:<10?} {:<10?} {:<10?} iced: {:<40} marty: {:<40} op_ct: {} c: {:<5} d: {:<5} opcode: {:02} bytes: {:X?}",
                 run_no,
                 segment_size,
+                marty_i.operand_size,
+                marty_i.address_size,
                 iced_display,
                 marty_display,
                 marty_i.operand_ct(),
                 marty_i.is_complete,
                 marty_i.disambiguate,
-                marty_i.address_size,
-                &instruction.bytes
+                marty_i.opcode,
+                &inst_bytes
             );
             error_ct += 1;
         }

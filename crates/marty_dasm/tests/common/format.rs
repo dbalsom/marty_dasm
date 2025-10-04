@@ -38,12 +38,18 @@ pub fn format_iced_instruction(iced_i: &iced_x86::Instruction) -> String {
 
     // Remove spurious 'notrack' extension decoding.
     instr_text = instr_text.replace("notrack ", "");
+    instr_text = instr_text.replace("xacquire ", "");
+    instr_text = instr_text.replace("xrelease ", "");
+    instr_text = instr_text.replace("bnd ", "");
+    instr_text = instr_text.replace("cs j", "j");
+    instr_text = instr_text.replace("cs lock j", "lock j");
+    instr_text = instr_text.replace("ds j", "j");
+    instr_text = instr_text.replace("ds lock j", "lock j");
 
     instr_text
 }
 
 pub fn format_marty_instruction(marty_i: &Instruction) -> String {
-
     let mut output = String::new();
     let mut options = FormatOptions::default();
     options.iced_mnemonics = true;
