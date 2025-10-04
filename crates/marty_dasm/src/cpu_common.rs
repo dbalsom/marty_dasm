@@ -20,29 +20,31 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use std::fmt::{Display, Formatter};
-use std::borrow::Borrow;
+use std::{
+    borrow::Borrow,
+    fmt::{Display, Formatter},
+};
 // Instruction prefixes
 
 pub struct PrefixFlags {}
 
 impl PrefixFlags {
-    pub const ES_OVERRIDE: u32    = 0b_0000_0000_0000_0100;
-    pub const CS_OVERRIDE: u32    = 0b_0000_0000_0000_1000;
-    pub const SS_OVERRIDE: u32    = 0b_0000_0000_0001_0000;
-    pub const DS_OVERRIDE: u32    = 0b_0000_0000_0010_0000;
-    pub const FS_OVERRIDE: u32    = 0b_0000_0000_0100_0000;
-    pub const GS_OVERRIDE: u32    = 0b_0000_0000_1000_0000;
-    //pub const SEG_OVERRIDE_MASK: u32     = 0b_0000_0000_1111_1100;
-    pub const LOCK: u32           = 0b_0000_0001_0000_0000;
-    pub const REP1: u32           = 0b_0000_0010_0000_0000;
-    pub const REP2: u32           = 0b_0000_0100_0000_0000;
-    pub const REP3: u32           = 0b_0000_1000_0000_0000;
-    pub const REP4: u32           = 0b_0001_0000_0000_0000;
-    //pub const REPMASK: u32        = 0b_0001_1110_0000_0000;
-    pub const OPERAND_SIZE: u32   = 0b_0010_0000_0000_0000;
-    pub const ADDRESS_SIZE: u32   = 0b_0100_0000_0000_0000;
-    pub const EXTENDED_0F: u32    = 0b_1000_0000_0000_0000;
+    pub const ES_OVERRIDE: u32 = 0b_0000_0000_0000_0100;
+    pub const CS_OVERRIDE: u32 = 0b_0000_0000_0000_1000;
+    pub const SS_OVERRIDE: u32 = 0b_0000_0000_0001_0000;
+    pub const DS_OVERRIDE: u32 = 0b_0000_0000_0010_0000;
+    pub const FS_OVERRIDE: u32 = 0b_0000_0000_0100_0000;
+    pub const GS_OVERRIDE: u32 = 0b_0000_0000_1000_0000;
+    pub const SEG_OVERRIDE_MASK: u32 = 0b_0000_0000_1111_1100;
+    pub const LOCK: u32 = 0b_0000_0001_0000_0000;
+    pub const REP1: u32 = 0b_0000_0010_0000_0000;
+    pub const REP2: u32 = 0b_0000_0100_0000_0000;
+    pub const REP3: u32 = 0b_0000_1000_0000_0000;
+    pub const REP4: u32 = 0b_0001_0000_0000_0000;
+    pub const REP_MASK: u32 = 0b_0001_1110_0000_0000;
+    pub const OPERAND_SIZE: u32 = 0b_0010_0000_0000_0000;
+    pub const ADDRESS_SIZE: u32 = 0b_0100_0000_0000_0000;
+    pub const EXTENDED_0F: u32 = 0b_1000_0000_0000_0000;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -103,6 +105,16 @@ pub enum Register16 {
     InvalidRegister,
 }
 
+impl Register16 {
+    #[inline]
+    pub fn is_segment_reg(&self) -> bool {
+        matches!(
+            self,
+            Register16::ES | Register16::CS | Register16::SS | Register16::DS | Register16::FS | Register16::GS
+        )
+    }
+}
+
 pub const REGISTER16_LUT: [Register16; 8] = [
     Register16::AX,
     Register16::CX,
@@ -160,7 +172,10 @@ pub const DREGISTER_LUT: [DebugRegister; 8] = [
 
 impl Register16 {
     pub fn is_segment(&self) -> bool {
-        matches!(self, Register16::ES | Register16::CS | Register16::SS | Register16::DS | Register16::FS | Register16::GS)
+        matches!(
+            self,
+            Register16::ES | Register16::CS | Register16::SS | Register16::DS | Register16::FS | Register16::GS
+        )
     }
 }
 
@@ -364,6 +379,15 @@ pub enum AddressSize {
     Address32,
 }
 
+impl AddressSize {
+    pub fn with_override(&self) -> AddressSize {
+        match self {
+            AddressSize::Address16 => AddressSize::Address32,
+            AddressSize::Address32 => AddressSize::Address16,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum OperandSize {
     #[default]
@@ -371,6 +395,17 @@ pub enum OperandSize {
     Operand8,
     Operand16,
     Operand32,
+}
+
+impl OperandSize {
+    pub fn with_override(&self) -> OperandSize {
+        match self {
+            OperandSize::Operand8 => OperandSize::Operand8,
+            OperandSize::Operand16 => OperandSize::Operand32,
+            OperandSize::Operand32 => OperandSize::Operand16,
+            OperandSize::NoOperand => OperandSize::NoOperand,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -493,7 +528,6 @@ impl AddressOffset16 {
         }
     }
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BaseRegister {
@@ -649,12 +683,7 @@ macro_rules! signed_hex {
             // Hex without width
             let s = format!("{:X}", mag);
 
-            if neg {
-                format!("-{s}h")
-            }
-            else {
-                format!("+{s}h")
-            }
+            if neg { format!("-{s}h") } else { format!("+{s}h") }
         }
     }};
 }
@@ -750,7 +779,6 @@ impl Display for AddressOffset32 {
     }
 }
 
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum OperandType {
     Immediate8(u8),
@@ -783,7 +811,10 @@ pub enum OperandType {
 impl OperandType {
     #[inline(always)]
     pub fn is_address(&self) -> bool {
-        matches!(self, OperandType::AddressingMode16(_, _) | OperandType::AddressingMode32(_, _))
+        matches!(
+            self,
+            OperandType::AddressingMode16(_, _) | OperandType::AddressingMode32(_, _)
+        )
     }
     #[inline(always)]
     pub fn is_register(&self) -> bool {

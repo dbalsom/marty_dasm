@@ -22,6 +22,9 @@
     DEALINGS IN THE SOFTWARE.
 */
 use crate::{
+    CpuType,
+    Decoder,
+    DecoderOptions,
     cpu_common::{
         AddressOffset16,
         AddressOffset32,
@@ -82,11 +85,64 @@ impl UnsignedAbsU32 for i32 {
 pub struct NasmFormatter;
 
 impl Format for NasmFormatter {
-    fn format_prefixes(&self, inst: &Instruction, _opts: &FormatOptions, out: &mut dyn FormatterOutput) {
-        // Minimal: ignore prefixes for now. Extend later for lock/rep and seg overrides.
+    fn format_prefixes(&self, inst: &Instruction, opts: &FormatOptions, out: &mut dyn FormatterOutput) {
+        if (inst.prefix_flags & PrefixFlags::ADDRESS_SIZE != 0) && !inst.has_modrm && !inst.mnemonic.is_loop() {
+            // Instructions with no modrm that accept an address size override prefix get an 'aNN'
+            // prefix, except for LOOP/LOOPE/LOOPNE which don't need disambiguation due to printing
+            // the overridden register.
+
+            match inst.address_size {
+                AddressSize::Address16 => {
+                    out.write_prefix("a16");
+                    out.write_separator(" ");
+                }
+                AddressSize::Address32 => {
+                    out.write_prefix("a32");
+                    out.write_separator(" ");
+                }
+            }
+        }
+
+        self.format_operand_size_disambiguation(inst, opts, out);
+
+        if inst.prefix_flags & PrefixFlags::SEG_OVERRIDE_MASK != 0 {
+            // if let Some(seg) = inst.segment_override {
+            //     println!(
+            //         "have segment override prefix: {} has_modrm: {} mnemonic: {} is_string_op: {}",
+            //         seg,
+            //         inst.has_modrm,
+            //         inst.mnemonic,
+            //         inst.mnemonic.is_string_op()
+            //     );
+            // }
+
+            if !inst.has_modrm
+                && inst.mnemonic.is_string_op()
+                && !inst.mnemonic.is_stos()
+                && !inst.mnemonic.is_scas()
+                && !inst.mnemonic.is_ins()
+            {
+                if let Some(seg) = inst.segment_override {
+                    if !matches!(seg, Register16::DS) {
+                        out.write_prefix(&seg.to_string().to_ascii_lowercase());
+                        out.write_separator(" ");
+                    }
+                }
+            }
+        }
 
         if inst.prefix_flags & PrefixFlags::LOCK != 0 {
             out.write_prefix("lock");
+            out.write_separator(" ");
+        }
+
+        if inst.mnemonic.is_string_op() && (inst.prefix_flags & PrefixFlags::REP_MASK != 0) {
+            if inst.prefix_flags & PrefixFlags::REP1 != 0 {
+                out.write_prefix(inst.mnemonic.rep1_prefix());
+            }
+            else if inst.prefix_flags & PrefixFlags::REP2 != 0 {
+                out.write_prefix(inst.mnemonic.rep2_prefix());
+            }
             out.write_separator(" ");
         }
     }
@@ -194,6 +250,45 @@ pub fn format_hex_or_decimal_32<T: PrimInt + Display + std::fmt::UpperHex>(value
 }
 
 impl NasmFormatter {
+    fn format_operand_size_disambiguation(
+        &self,
+        inst: &Instruction,
+        _opts: &FormatOptions,
+        out: &mut dyn FormatterOutput,
+    ) {
+        let mut disambiguate = false;
+        if inst.has_operand_size_override() && inst.mnemonic.disambiguate_operand_size() {
+            if inst.mnemonic.is_push_or_pop() {
+                if let OperandType::Register16(reg) = inst.operand1_type {
+                    if reg.is_segment_reg() {
+                        disambiguate = true;
+                    }
+                }
+            }
+            else {
+                disambiguate = match inst.operand1_type {
+                    OperandType::NoOperand => true,
+                    OperandType::Relative8(_) => true,
+                    _ => false,
+                }
+            }
+        }
+
+        if disambiguate {
+            match inst.operand_size {
+                OperandSize::Operand16 => {
+                    out.write_text("o16");
+                    out.write_separator(" ");
+                }
+                OperandSize::Operand32 => {
+                    out.write_text("o32");
+                    out.write_separator(" ");
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn format_disambiguation(
         &self,
         inst: &Instruction,
@@ -213,6 +308,20 @@ impl NasmFormatter {
                 OperandType::Relative16(_) | OperandType::Relative32(_) => {
                     out.write_text("near");
                     out.write_separator(" ");
+
+                    if inst.has_operand_size_override() {
+                        match inst.operand_size {
+                            OperandSize::Operand16 => {
+                                out.write_text("word");
+                                out.write_separator(" ");
+                            }
+                            OperandSize::Operand32 => {
+                                out.write_text("dword");
+                                out.write_separator(" ");
+                            }
+                            _ => {}
+                        }
+                    }
                     return;
                 }
                 _ => None,
@@ -445,9 +554,14 @@ impl NasmFormatter {
                 out.write_immediate(&format_hex_or_decimal(imm));
             }
             OperandType::Immediate8s(imm) => {
-                let display = match instruction.address_size {
-                    AddressSize::Address16 => format_hex_or_decimal(imm as i16 as u16),
-                    AddressSize::Address32 => format_hex_or_decimal(imm as i16 as i32 as u32),
+                // let display = match instruction.address_size {
+                //     AddressSize::Address16 => format_hex_or_decimal(imm as i16 as u16),
+                //     AddressSize::Address32 => format_hex_or_decimal(imm as i16 as i32 as u32),
+                // };
+                let display = match instruction.operand_size {
+                    OperandSize::Operand16 => format_hex_or_decimal(imm as i16 as u16),
+                    OperandSize::Operand32 => format_hex_or_decimal(imm as i16 as i32 as u32),
+                    _ => format_hex_or_decimal(imm),
                 };
                 out.write_immediate(&display);
             }
@@ -465,9 +579,14 @@ impl NasmFormatter {
             }
             OperandType::Relative16(num) => {
                 let display = (num as u16).wrapping_add(instruction.instruction_bytes.len() as u16);
-                match instruction.address_size {
-                    AddressSize::Address16 => out.write_relative(&format_hex_or_decimal_16(display)),
-                    AddressSize::Address32 => out.write_relative(&format_hex_or_decimal_32(display)),
+                // match instruction.address_size {
+                //     AddressSize::Address16 => out.write_relative(&format_hex_or_decimal_16(display)),
+                //     AddressSize::Address32 => out.write_relative(&format_hex_or_decimal_32(display)),
+                // };
+                match instruction.operand_size {
+                    OperandSize::Operand16 => out.write_relative(&format_hex_or_decimal_16(display)),
+                    OperandSize::Operand32 => out.write_relative(&format_hex_or_decimal_32(display)),
+                    _ => out.write_text("??BADOP??"),
                 };
             }
             OperandType::Relative32(num) => {
@@ -520,7 +639,6 @@ impl NasmFormatter {
                 else {
                     mode.base_register()
                 };
-
                 out.write_separator("[");
                 out.write_register(&format!("{}:", base_register));
                 self.format_address_16(mode, out);
@@ -533,7 +651,6 @@ impl NasmFormatter {
                 else {
                     mode.base_register()
                 };
-
                 out.write_separator("[");
                 out.write_register(&format!("{}:", base_register));
                 self.format_address_32(mode, out);
@@ -553,5 +670,63 @@ impl NasmFormatter {
             OperandType::NoOperand => {}
             OperandType::InvalidOperand => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{SegmentSize, mnemonic::Mnemonic};
+    use std::io::Cursor;
+
+    #[test]
+    fn format_nop_386() {
+        let bytes = [0x90u8]; // NOP
+        let mut dec = Decoder::new(
+            Cursor::new(&bytes[..]),
+            DecoderOptions {
+                cpu: CpuType::Intel80386,
+                ..Default::default()
+            },
+        );
+        let inst = dec.decode_next().expect("decode ok");
+        let mut output = String::new();
+        NasmFormatter.format_instruction(&inst, &FormatOptions::default(), &mut output);
+
+        assert_eq!(output, "nop");
+    }
+
+    #[test]
+    fn format_movsw_386_32() {
+        let bytes = [0x67, 0xA5]; // a32 movsw
+        let mut dec = Decoder::new(
+            Cursor::new(&bytes[..]),
+            DecoderOptions {
+                cpu: CpuType::Intel80386,
+                segment_size: SegmentSize::Segment16,
+            },
+        );
+        let inst = dec.decode_next().expect("decode ok");
+        let mut output = String::new();
+        NasmFormatter.format_instruction(&inst, &FormatOptions::default(), &mut output);
+
+        assert_eq!(output, "a32 movsw");
+    }
+
+    #[test]
+    fn format_movsd_386_16() {
+        let bytes = [0x67, 0xA5]; // a32 movsw/d
+        let mut dec = Decoder::new(
+            Cursor::new(&bytes[..]),
+            DecoderOptions {
+                cpu: CpuType::Intel80386,
+                segment_size: SegmentSize::Segment32,
+            },
+        );
+        let inst = dec.decode_next().expect("decode ok");
+        let mut output = String::new();
+        NasmFormatter.format_instruction(&inst, &FormatOptions::default(), &mut output);
+
+        assert_eq!(output, "a16 movsd");
     }
 }

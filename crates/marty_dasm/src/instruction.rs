@@ -22,8 +22,11 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-use crate::cpu_common::{AddressSize, OperandSize, OperandType, Register16};
-use crate::mnemonic::Mnemonic;
+use crate::{
+    SegmentSize,
+    cpu_common::{AddressSize, OperandSize, OperandType, Register16},
+    mnemonic::Mnemonic,
+};
 
 #[derive(Clone, Debug)]
 pub struct Instruction {
@@ -46,6 +49,7 @@ pub struct Instruction {
     pub prefix_flags: u32,
     pub prefix_ct: u32,
     pub address: u32,
+    pub segment_size: SegmentSize,
     pub operand_size: OperandSize,
     pub address_size: AddressSize,
     pub mnemonic: Mnemonic,
@@ -79,6 +83,7 @@ impl Default for Instruction {
             prefix_flags: 0,
             prefix_ct: 0,
             address: 0,
+            segment_size: SegmentSize::Segment16,
             operand_size: OperandSize::NoOperand,
             address_size: AddressSize::Address16,
             mnemonic: Mnemonic::NOP,
@@ -93,11 +98,24 @@ impl Default for Instruction {
 }
 
 impl Instruction {
-
     pub fn has_operands(&self) -> bool {
         self.operand1_type != OperandType::NoOperand
             || self.operand2_type != OperandType::NoOperand
             || self.operand3_type != OperandType::NoOperand
+    }
+
+    pub fn has_operand_size_override(&self) -> bool {
+        match self.segment_size {
+            SegmentSize::Segment16 => self.operand_size == OperandSize::Operand32,
+            SegmentSize::Segment32 => self.operand_size == OperandSize::Operand16,
+        }
+    }
+
+    pub fn has_address_size_override(&self) -> bool {
+        match self.segment_size {
+            SegmentSize::Segment16 => self.address_size == AddressSize::Address32,
+            SegmentSize::Segment32 => self.address_size == AddressSize::Address16,
+        }
     }
 
     pub fn operand_ct(&self) -> u32 {

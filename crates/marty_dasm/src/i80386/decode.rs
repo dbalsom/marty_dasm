@@ -82,6 +82,7 @@ pub enum OperandTemplate {
     NoOperand,
     ModRM8,
     ModRM16,
+    ModRM16a16,
     ModRM16or32,
     ModRM16orR32,
     ModRM32,
@@ -105,6 +106,7 @@ pub enum OperandTemplate {
     FixedRegister8(Register8),
     FixedRegister16(Register16),
     FixedRegister16or32(Register16),
+    RegisterA16orA32(Register16),
     FarPointer,
 }
 
@@ -127,7 +129,7 @@ impl OperandTemplate {
                     false => Ok(OperandType::Register8(modrm.unwrap().op1_reg8())),
                 }
             }
-            (OperandTemplate::ModRM16, _) => {
+            (OperandTemplate::ModRM16 | OperandTemplate::ModRM16a16, _) => {
                 let addr_mode = modrm.unwrap().address_offset(displacement);
                 match modrm.unwrap().is_addressing_mode() {
                     true => Ok(AddressingMode16(addr_mode, OperandSize::Operand16)),
@@ -138,15 +140,18 @@ impl OperandTemplate {
                 let addr_mode = modrm.unwrap().address_offset(displacement);
                 match modrm.unwrap().is_addressing_mode() && !force_reg {
                     true => Ok(AddressingMode16(addr_mode, operand_size)),
-                    false => Ok(OperandType::Register16(modrm.unwrap().op1_reg16())),
+                    false => match operand_size {
+                        OperandSize::Operand16 => Ok(OperandType::Register16(modrm.unwrap().op1_reg16())),
+                        OperandSize::Operand32 => Ok(OperandType::Register32(modrm.unwrap().op1_reg32())),
+                        _ => panic!("Unexpected operand size in ModRM16orR32"),
+                    },
                 }
             }
-            (OperandTemplate::ModRM16orR32, op) => {
-                // This mode is either a 16-bit addressing mode or either a 16 or 32-bit register.
+            (OperandTemplate::ModRM16orR32, _) => {
                 let addr_mode = modrm.unwrap().address_offset(displacement);
                 match modrm.unwrap().is_addressing_mode() && !force_reg {
                     true => Ok(AddressingMode16(addr_mode, OperandSize::Operand16)),
-                    false => match op {
+                    false => match operand_size {
                         OperandSize::Operand16 => Ok(OperandType::Register16(modrm.unwrap().op1_reg16())),
                         OperandSize::Operand32 => Ok(OperandType::Register32(modrm.unwrap().op1_reg32())),
                         _ => panic!("Unexpected operand size in ModRM16orR32"),
@@ -336,7 +341,11 @@ impl OperandTemplate {
                             Ok(AddressingMode32(addr_mode, OperandSize::Operand16))
                         }
                         else {
-                            Ok(OperandType::Register32(modrm.op1_reg32()))
+                            match operand_size {
+                                OperandSize::Operand16 => Ok(OperandType::Register16(modrm.op1_reg16())),
+                                OperandSize::Operand32 => Ok(OperandType::Register32(modrm.op1_reg32())),
+                                _ => panic!("Unexpected operand size in ModRM16orR32"),
+                            }
                         }
                     }
                 }
@@ -350,7 +359,11 @@ impl OperandTemplate {
                         Ok(AddressingMode32(addr_mode, operand_size))
                     }
                     else {
-                        Ok(OperandType::Register32(modrm.op1_reg32()))
+                        match operand_size {
+                            OperandSize::Operand16 => Ok(OperandType::Register16(modrm.op1_reg16())),
+                            OperandSize::Operand32 => Ok(OperandType::Register32(modrm.op1_reg32())),
+                            _ => panic!("Unexpected operand size in ModRM16orR32"),
+                        }
                     }
                 }
             },
@@ -474,6 +487,14 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
                 Ok(OperandType::Register32(Register32::from(*r16)))
             }
+            (OperandTemplate::RegisterA16orA32(r16), _) => {
+                let has_override = instruction.has_address_size_override();
+                println!("Address size override: {}", has_override);
+                match instruction.has_address_size_override() {
+                    true => Ok(OperandType::Register32(Register32::from(*r16))),
+                    false => Ok(OperandType::NoOperand),
+                }
+            }
             (OperandTemplate::FarPointer, _) => {
                 let (segment, offset) = bytes.read_farptr32()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
@@ -581,352 +602,379 @@ impl TableInitializer {
 #[rustfmt::skip]
 pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     let mut o: TableInitializer = TableInitializer::new();
-    inst!( 0x00, o, 0, 0b0000_1010_0000_0000, 0x008, ADD,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x01, o, 0, 0b0000_1010_0000_0000, 0x008, ADD,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x02, o, 0, 0b0000_1010_0000_0000, 0x008, ADD,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x03, o, 0, 0b0000_1010_0000_0000, 0x008, ADD,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x00, o, 0, 0b0000_1010_0010_0000, 0x008, ADD,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x01, o, 0, 0b0000_1010_0110_0000, 0x008, ADD,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x02, o, 0, 0b0000_1010_0010_0000, 0x008, ADD,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x03, o, 0, 0b0000_1010_0110_0000, 0x008, ADD,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x04, o, 0, 0b0000_1000_1001_0010, 0x018, ADD,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x05, o, 0, 0b0000_1000_1001_0010, 0x018, ADD,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x06, o, 0, 0b0000_0000_0011_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::ES),    Ot::NoOperand);
-    inst!( 0x07, o, 0, 0b0000_0000_0011_0010, 0x038, POP,     Ot::FixedRegister16(Register16::ES),    Ot::NoOperand);
-    inst!( 0x08, o, 0, 0b0000_1010_0000_0000, 0x008, OR,      Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x09, o, 0, 0b0000_1010_0000_0000, 0x008, OR,      Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x0A, o, 0, 0b0000_1010_0000_0000, 0x008, OR,      Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x0B, o, 0, 0b0000_1010_0000_0000, 0x008, OR,      Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x05, o, 0, 0b0000_1000_1101_0010, 0x018, ADD,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0x06, o, 0, 0b0000_0000_0101_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::ES),    Ot::NoOperand);
+    inst!( 0x07, o, 0, 0b0000_0000_0101_0010, 0x038, POP,     Ot::FixedRegister16(Register16::ES),    Ot::NoOperand);
+    inst!( 0x08, o, 0, 0b0000_1010_0010_0000, 0x008, OR,      Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x09, o, 0, 0b0000_1010_0110_0000, 0x008, OR,      Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x0A, o, 0, 0b0000_1010_0010_0000, 0x008, OR,      Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x0B, o, 0, 0b0000_1010_0110_0000, 0x008, OR,      Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x0C, o, 0, 0b0000_1000_1001_0010, 0x018, OR,      Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x0D, o, 0, 0b0000_1000_1001_0010, 0x018, OR,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x0E, o, 0, 0b0000_0000_0011_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::CS),    Ot::NoOperand);
+    inst!( 0x0D, o, 0, 0b0000_1000_1101_0010, 0x018, OR,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0x0E, o, 0, 0b0000_0000_0101_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::CS),    Ot::NoOperand);
+
     inst!( 0x0F, o, 0, 0b0000_0000_0000_0000, 0x038, Extension,Ot::NoOperand,                         Ot::NoOperand);
-    inst!( 0x10, o, 0, 0b0000_1010_0000_0000, 0x008, ADC,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x11, o, 0, 0b0000_1010_0000_0000, 0x008, ADC,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x12, o, 0, 0b0000_1010_0000_0000, 0x008, ADC,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x13, o, 0, 0b0000_1010_0000_0000, 0x008, ADC,     Ot::Register16or32,                     Ot::ModRM16or32);
+
+    inst!( 0x10, o, 0, 0b0000_1010_0010_0000, 0x008, ADC,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x11, o, 0, 0b0000_1010_0110_0000, 0x008, ADC,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x12, o, 0, 0b0000_1010_0010_0000, 0x008, ADC,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x13, o, 0, 0b0000_1010_0110_0000, 0x008, ADC,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x14, o, 0, 0b0000_1000_1001_0010, 0x018, ADC,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x15, o, 0, 0b0000_1000_1001_0010, 0x018, ADC,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x16, o, 0, 0b0000_0000_0011_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::SS),    Ot::NoOperand);
-    inst!( 0x17, o, 0, 0b0000_0000_0011_0010, 0x038, POP,     Ot::FixedRegister16(Register16::SS),    Ot::NoOperand);
-    inst!( 0x18, o, 0, 0b0000_1010_0000_0000, 0x008, SBB,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x19, o, 0, 0b0000_1010_0000_0000, 0x008, SBB,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x1A, o, 0, 0b0000_1010_0000_0000, 0x008, SBB,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x1B, o, 0, 0b0000_1010_0000_0000, 0x008, SBB,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x15, o, 0, 0b0000_1000_1101_0010, 0x018, ADC,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0x16, o, 0, 0b0000_0000_0101_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::SS),    Ot::NoOperand);
+    inst!( 0x17, o, 0, 0b0000_0000_0101_0010, 0x038, POP,     Ot::FixedRegister16(Register16::SS),    Ot::NoOperand);
+    inst!( 0x18, o, 0, 0b0000_1010_0010_0000, 0x008, SBB,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x19, o, 0, 0b0000_1010_0110_0000, 0x008, SBB,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x1A, o, 0, 0b0000_1010_0010_0000, 0x008, SBB,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x1B, o, 0, 0b0000_1010_0110_0000, 0x008, SBB,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x1C, o, 0, 0b0000_1000_1001_0010, 0x018, SBB,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x1D, o, 0, 0b0000_1000_1001_0010, 0x018, SBB,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x1E, o, 0, 0b0000_0000_0011_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::DS),    Ot::NoOperand);
-    inst!( 0x1F, o, 0, 0b0000_0000_0011_0010, 0x038, POP,     Ot::FixedRegister16(Register16::DS),    Ot::NoOperand);
-    inst!( 0x20, o, 0, 0b0000_1010_0000_0000, 0x008, AND,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x21, o, 0, 0b0000_1010_0000_0000, 0x008, AND,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x22, o, 0, 0b0000_1010_0000_0000, 0x008, AND,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x23, o, 0, 0b0000_1010_0000_0000, 0x008, AND,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x1D, o, 0, 0b0000_1000_1101_0010, 0x018, SBB,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0x1E, o, 0, 0b0000_0000_0101_0010, 0x02c, PUSH,    Ot::FixedRegister16(Register16::DS),    Ot::NoOperand);
+    inst!( 0x1F, o, 0, 0b0000_0000_0101_0010, 0x038, POP,     Ot::FixedRegister16(Register16::DS),    Ot::NoOperand);
+    inst!( 0x20, o, 0, 0b0000_1010_0010_0000, 0x008, AND,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x21, o, 0, 0b0000_1010_0110_0000, 0x008, AND,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x22, o, 0, 0b0000_1010_0010_0000, 0x008, AND,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x23, o, 0, 0b0000_1010_0110_0000, 0x008, AND,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x24, o, 0, 0b0000_1000_1001_0010, 0x018, AND,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x25, o, 0, 0b0000_1000_1001_0010, 0x018, AND,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x26, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x27, o, 0, 0b0001_0000_0011_0010, 0x144, DAA,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x28, o, 0, 0b0000_1010_0000_0000, 0x008, SUB,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x29, o, 0, 0b0000_1010_0000_0000, 0x008, SUB,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x2A, o, 0, 0b0000_1010_0000_0000, 0x008, SUB,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x2B, o, 0, 0b0000_1010_0000_0000, 0x008, SUB,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x25, o, 0, 0b0000_1000_1101_0010, 0x018, AND,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+
+    inst!( 0x26, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0x27, o, 0, 0b0001_0000_0001_0010, 0x144, DAA,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x28, o, 0, 0b0000_1010_0010_0000, 0x008, SUB,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x29, o, 0, 0b0000_1010_0110_0000, 0x008, SUB,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x2A, o, 0, 0b0000_1010_0010_0000, 0x008, SUB,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x2B, o, 0, 0b0000_1010_0110_0000, 0x008, SUB,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x2C, o, 0, 0b0000_1000_1001_0010, 0x018, SUB,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x2D, o, 0, 0b0000_1000_1001_0010, 0x018, SUB,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x2E, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x2F, o, 0, 0b0001_0000_0011_0010, 0x144, DAS,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x30, o, 0, 0b0000_1010_0000_0000, 0x008, XOR,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x31, o, 0, 0b0000_1010_0000_0000, 0x008, XOR,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x32, o, 0, 0b0000_1010_0000_0000, 0x008, XOR,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x33, o, 0, 0b0000_1010_0000_0000, 0x008, XOR,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x2D, o, 0, 0b0000_1000_1101_0010, 0x018, SUB,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+
+    inst!( 0x2E, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0x2F, o, 0, 0b0001_0000_0001_0010, 0x144, DAS,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x30, o, 0, 0b0000_1010_0010_0000, 0x008, XOR,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x31, o, 0, 0b0000_1010_0110_0000, 0x008, XOR,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x32, o, 0, 0b0000_1010_0010_0000, 0x008, XOR,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x33, o, 0, 0b0000_1010_0110_0000, 0x008, XOR,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x34, o, 0, 0b0000_1000_1001_0010, 0x018, XOR,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x35, o, 0, 0b0000_1000_1001_0010, 0x018, XOR,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x36, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x37, o, 0, 0b0001_0000_0011_0010, 0x148, AAA,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x38, o, 0, 0b0000_1010_0000_0000, 0x008, CMP,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x39, o, 0, 0b0000_1010_0000_0000, 0x008, CMP,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x3A, o, 0, 0b0000_1010_0000_0000, 0x008, CMP,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x3B, o, 0, 0b0000_1010_0000_0000, 0x008, CMP,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x35, o, 0, 0b0000_1000_1101_0010, 0x018, XOR,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+
+    inst!( 0x36, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0x37, o, 0, 0b0001_0000_0001_0010, 0x148, AAA,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x38, o, 0, 0b0000_1010_0010_0000, 0x008, CMP,     Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x39, o, 0, 0b0000_1010_0110_0000, 0x008, CMP,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x3A, o, 0, 0b0000_1010_0010_0000, 0x008, CMP,     Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x3B, o, 0, 0b0000_1010_0110_0000, 0x008, CMP,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x3C, o, 0, 0b0000_1000_1001_0010, 0x018, CMP,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0x3D, o, 0, 0b0000_1000_1001_0010, 0x018, CMP,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0x3E, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x3F, o, 0, 0b0001_0000_0011_0010, 0x148, AAS,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x40, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
-    inst!( 0x41, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
-    inst!( 0x42, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
-    inst!( 0x43, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
-    inst!( 0x44, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
-    inst!( 0x45, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
-    inst!( 0x46, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
-    inst!( 0x47, o, 0, 0b0000_0000_0011_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
-    inst!( 0x48, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
-    inst!( 0x49, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
-    inst!( 0x4A, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
-    inst!( 0x4B, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
-    inst!( 0x4C, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
-    inst!( 0x4D, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
-    inst!( 0x4E, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
-    inst!( 0x4F, o, 0, 0b0000_0000_0011_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
-    inst!( 0x50, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
-    inst!( 0x51, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
-    inst!( 0x52, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
-    inst!( 0x53, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
-    inst!( 0x54, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
-    inst!( 0x55, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
-    inst!( 0x56, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
-    inst!( 0x57, o, 0, 0b0000_0000_0011_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
-    inst!( 0x58, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
-    inst!( 0x59, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
-    inst!( 0x5A, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
-    inst!( 0x5B, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
-    inst!( 0x5C, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
-    inst!( 0x5D, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
-    inst!( 0x5E, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
-    inst!( 0x5F, o, 0, 0b0000_0000_0011_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
-    inst!( 0x60, o, 0, 0b0000_0000_0001_0000, 0x0e8, PUSHA,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x61, o, 0, 0b0000_0000_0001_0000, 0x0e8, POPA,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x62, o, 0, 0b0010_0000_0000_0000, 0x0e8, BOUND,   Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0x63, o, 0, 0b0000_0000_0000_0000, 0x0e8, ARPL,    Ot::ModRM16,                            Ot::Register16);
+    inst!( 0x3D, o, 0, 0b0000_1000_1101_0010, 0x018, CMP,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+
+    inst!( 0x3E, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0x3F, o, 0, 0b0001_0000_0001_0010, 0x148, AAS,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x40, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
+    inst!( 0x41, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
+    inst!( 0x42, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
+    inst!( 0x43, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
+    inst!( 0x44, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
+    inst!( 0x45, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
+    inst!( 0x46, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
+    inst!( 0x47, o, 0, 0b0000_0000_0101_0010, 0x17c, INC,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
+    inst!( 0x48, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
+    inst!( 0x49, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
+    inst!( 0x4A, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
+    inst!( 0x4B, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
+    inst!( 0x4C, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
+    inst!( 0x4D, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
+    inst!( 0x4E, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
+    inst!( 0x4F, o, 0, 0b0000_0000_0101_0010, 0x17c, DEC,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
+    inst!( 0x50, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
+    inst!( 0x51, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
+    inst!( 0x52, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
+    inst!( 0x53, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
+    inst!( 0x54, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
+    inst!( 0x55, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
+    inst!( 0x56, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
+    inst!( 0x57, o, 0, 0b0000_0000_0101_0010, 0x028, PUSH,    Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
+    inst!( 0x58, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::AX),Ot::NoOperand);
+    inst!( 0x59, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::CX),Ot::NoOperand);
+    inst!( 0x5A, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::DX),Ot::NoOperand);
+    inst!( 0x5B, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::BX),Ot::NoOperand);
+    inst!( 0x5C, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::SP),Ot::NoOperand);
+    inst!( 0x5D, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::BP),Ot::NoOperand);
+    inst!( 0x5E, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::SI),Ot::NoOperand);
+    inst!( 0x5F, o, 0, 0b0000_0000_0101_0010, 0x034, POP,     Ot::FixedRegister16or32(Register16::DI),Ot::NoOperand);
+    inst!( 0x60, o, 0, 0b0000_0000_0101_0000, 0x0e8, PUSHA,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x61, o, 0, 0b0000_0000_0101_0000, 0x0e8, POPA,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x62, o, 0, 0b0010_0000_0110_0000, 0x0e8, BOUND,   Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x63, o, 0, 0b0000_0000_0110_0000, 0x0e8, ARPL,    Ot::ModRM16,                            Ot::Register16);
+
     inst!( 0x64, o, 0, 0b0000_0000_0001_1000, 0x0e8, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x65, o, 0, 0b0000_0000_0001_1000, 0x0e8, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x66, o, 0, 0b0000_0000_0000_0000, 0x0e8, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x67, o, 0, 0b0000_0000_0000_0000, 0x0e8, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x68, o, 0, 0b0000_0000_0001_0000, 0x0e8, PUSH,    Ot::Immediate16or32,                    Ot::NoOperand);
-    inst!( 0x69, o, 0, 0b0000_0000_0000_0000, 0x0e8, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32, Ot::Immediate16or32);
-    inst!( 0x6A, o, 0, 0b0000_0000_0001_0000, 0x0e8, PUSH,    Ot::Immediate8SignExtended16,           Ot::NoOperand);
-    inst!( 0x6B, o, 0, 0b0000_0000_0000_0000, 0x0e8, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32, Ot::Immediate8SignExtended16or32);
-    inst!( 0x6C, o, 0, 0b0000_0000_0001_0000, 0x0e8, INSB,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x6D, o, 0, 0b0000_0000_0001_0000, 0x0e8, INSW,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x6E, o, 0, 0b0000_0000_0001_0000, 0x0e8, OUTSB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x6F, o, 0, 0b0000_0000_0001_0000, 0x0e8, OUTSW,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x70, o, 0, 0b1000_0000_0011_0010, 0x0e8, JO,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x71, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNO,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x72, o, 0, 0b1000_0000_0011_0010, 0x0e8, JB,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x73, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNB,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x74, o, 0, 0b1000_0000_0011_0010, 0x0e8, JZ,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x75, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNZ,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x76, o, 0, 0b1000_0000_0011_0010, 0x0e8, JBE,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x77, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNBE,    Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x78, o, 0, 0b1000_0000_0011_0010, 0x0e8, JS,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x79, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNS,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7A, o, 0, 0b1000_0000_0011_0010, 0x0e8, JP,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7B, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNP,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7C, o, 0, 0b1000_0000_0011_0010, 0x0e8, JL,      Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7D, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNL,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7E, o, 0, 0b1000_0000_0011_0010, 0x0e8, JLE,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x7F, o, 0, 0b1000_0000_0011_0010, 0x0e8, JNLE,    Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0x80, o, 1, 0b0000_1000_0000_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x81, o, 2, 0b0000_1000_0000_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x82, o, 3, 0b0000_1000_0000_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x83, o, 4, 0b0000_1000_0000_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x84, o, 0, 0b0000_1000_0000_0000, 0x094, TEST,    Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x85, o, 0, 0b0000_1000_0000_0000, 0x094, TEST,    Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0x86, o, 0, 0b0000_1000_0000_0000, 0x0a4, XCHG,    Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x87, o, 0, 0b0000_1000_0000_0000, 0x0a4, XCHG,    Ot::Register16or32,                     Ot::ModRM16or32);
+
+    inst!( 0x68, o, 0, 0b0000_0000_0101_0000, 0x0e8, PUSH,    Ot::Immediate16or32,                    Ot::NoOperand);
+    inst!( 0x69, o, 0, 0b0000_0000_0110_0000, 0x0e8, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32, Ot::Immediate16or32);
+    inst!( 0x6A, o, 0, 0b0000_0000_0101_0000, 0x0e8, PUSH,    Ot::Immediate8SignExtended16,           Ot::NoOperand);
+    inst!( 0x6B, o, 0, 0b0000_0000_0110_0000, 0x0e8, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32, Ot::Immediate8SignExtended16or32);
+    inst!( 0x6C, o, 0, 0b0000_0000_0011_0000, 0x0e8, INSB,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x6D, o, 0, 0b0000_0000_0111_0000, 0x0e8, INSW,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x6E, o, 0, 0b0000_0000_0011_0000, 0x0e8, OUTSB,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x6F, o, 0, 0b0000_0000_0111_0000, 0x0e8, OUTSW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x70, o, 0, 0b1000_0000_0101_0010, 0x0e8, JO,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x71, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNO,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x72, o, 0, 0b1000_0000_0101_0010, 0x0e8, JB,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x73, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNB,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x74, o, 0, 0b1000_0000_0101_0010, 0x0e8, JZ,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x75, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNZ,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x76, o, 0, 0b1000_0000_0101_0010, 0x0e8, JBE,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x77, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNBE,    Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x78, o, 0, 0b1000_0000_0101_0010, 0x0e8, JS,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x79, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNS,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7A, o, 0, 0b1000_0000_0101_0010, 0x0e8, JP,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7B, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNP,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7C, o, 0, 0b1000_0000_0101_0010, 0x0e8, JL,      Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7D, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNL,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7E, o, 0, 0b1000_0000_0101_0010, 0x0e8, JLE,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0x7F, o, 0, 0b1000_0000_0101_0010, 0x0e8, JNLE,    Ot::Relative8,                          Ot::NoOperand);
+
+    inst!( 0x80, o, 1, 0b0000_1000_0010_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x81, o, 2, 0b0000_1000_0110_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x82, o, 3, 0b0000_1000_0010_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x83, o, 4, 0b0000_1000_0110_0000, 0x00c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0x84, o, 0, 0b0000_1000_0010_0000, 0x094, TEST,    Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x85, o, 0, 0b0000_1000_0110_0000, 0x094, TEST,    Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x86, o, 0, 0b0000_1000_0010_0000, 0x0a4, XCHG,    Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x87, o, 0, 0b0000_1000_0110_0000, 0x0a4, XCHG,    Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0x88, o, 0, 0b0000_1010_0010_0010, 0x000, MOV,     Ot::ModRM8,                             Ot::Register8);
-    inst!( 0x89, o, 0, 0b0000_1010_0010_0010, 0x000, MOV,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x89, o, 0, 0b0000_1010_0110_0010, 0x000, MOV,     Ot::ModRM16or32,                        Ot::Register16or32);
     inst!( 0x8A, o, 0, 0b0000_1010_0010_0000, 0x000, MOV,     Ot::Register8,                          Ot::ModRM8);
-    inst!( 0x8B, o, 0, 0b0000_1010_0010_0000, 0x000, MOV,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0x8C, o, 0, 0b0000_0011_0010_0010, 0x0ec, MOV,     Ot::ModRM16orR32,                       Ot::SegmentRegister);
-    inst!( 0x8D, o, 0, 0b0010_0000_0010_0010, 0x004, LEA,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0x8E, o, 0, 0b0000_0011_0010_0000, 0x0ec, MOV,     Ot::SegmentRegister,                    Ot::ModRM16orR32);
-    inst!( 0x8F, o, 0, 0b1000_0000_0010_0110, 0x040, POP,     Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0x90, o, 0, 0b0000_0000_0011_0010, 0x084, NOP,     Ot::FixedRegister16or32(Register16::AX),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x91, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::CX),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x92, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::DX),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x93, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::BX),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x94, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::SP),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x95, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::BP),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x96, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::SI),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x97, o, 0, 0b0000_0000_0011_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::DI),Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0x98, o, 0, 0b0000_0000_0011_0010, 0x054, CBW,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x99, o, 0, 0b0000_0000_0011_0010, 0x058, CWD,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x9A, o, 0, 0b0000_0000_0011_0010, 0x070, CALLF,   Ot::FarPointer,                         Ot::NoOperand);
-    inst!( 0x9B, o, 0, 0b0000_0000_0011_0010, 0x0f8, WAIT,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x9C, o, 0, 0b0000_0000_0011_0010, 0x030, PUSHF,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x9D, o, 0, 0b0000_0000_0011_0010, 0x03c, POPF,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x9E, o, 0, 0b0000_0000_0011_0010, 0x100, SAHF,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x9F, o, 0, 0b0000_0000_0011_0010, 0x104, LAHF,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x8B, o, 0, 0b0000_1010_0110_0000, 0x000, MOV,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x8C, o, 0, 0b0000_0011_0110_0010, 0x0ec, MOV,     Ot::ModRM16orR32,                       Ot::SegmentRegister);
+    inst!( 0x8D, o, 0, 0b0010_0000_0110_0010, 0x004, LEA,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x8E, o, 0, 0b0000_0011_0110_0000, 0x0ec, MOV,     Ot::SegmentRegister,                    Ot::ModRM16orR32);
+    inst!( 0x8F, o, 0, 0b1000_0000_0110_0110, 0x040, POP,     Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0x90, o, 0, 0b0000_0000_0101_0010, 0x084, NOP,     Ot::FixedRegister16or32(Register16::AX),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x91, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::CX),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x92, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::DX),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x93, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::BX),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x94, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::SP),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x95, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::BP),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x96, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::SI),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x97, o, 0, 0b0000_0000_0101_0010, 0x084, XCHG,    Ot::FixedRegister16or32(Register16::DI),Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0x98, o, 0, 0b0000_0000_0101_0010, 0x054, CBW,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x99, o, 0, 0b0000_0000_0101_0010, 0x058, CWD,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x9A, o, 0, 0b0000_0000_0101_0010, 0x070, CALLF,   Ot::FarPointer,                         Ot::NoOperand);
+    inst!( 0x9B, o, 0, 0b0000_0000_0001_0010, 0x0f8, WAIT,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x9C, o, 0, 0b0000_0000_0101_0010, 0x030, PUSHF,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x9D, o, 0, 0b0000_0000_0101_0010, 0x03c, POPF,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x9E, o, 0, 0b0000_0000_0001_0010, 0x100, SAHF,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x9F, o, 0, 0b0000_0000_0001_0010, 0x104, LAHF,    Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xA0, o, 0, 0b0000_1000_1011_0010, 0x060, MOV,     Ot::FixedRegister8(Register8::AL),      Ot::Offset8);
-    inst!( 0xA1, o, 0, 0b0000_1000_1011_0010, 0x060, MOV,     Ot::FixedRegister16or32(Register16::AX),Ot::Offset16or32);
+    inst!( 0xA1, o, 0, 0b0000_1000_1111_0010, 0x060, MOV,     Ot::FixedRegister16or32(Register16::AX),Ot::Offset16or32);
     inst!( 0xA2, o, 0, 0b0000_1000_1011_0010, 0x064, MOV,     Ot::Offset8,                            Ot::FixedRegister8(Register8::AL));
-    inst!( 0xA3, o, 0, 0b0000_1000_1011_0010, 0x064, MOV,     Ot::Offset16or32,                       Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0xA3, o, 0, 0b0000_1000_1111_0010, 0x064, MOV,     Ot::Offset16or32,                       Ot::FixedRegister16or32(Register16::AX));
     inst!( 0xA4, o, 0, 0b0000_1000_1011_0010, 0x12c, MOVSB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xA5, o, 0, 0b0000_1000_1011_0010, 0x12c, MOVSW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xA5, o, 0, 0b0000_1000_1111_0010, 0x12c, MOVSW,   Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xA6, o, 0, 0b0000_1000_1011_0010, 0x120, CMPSB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xA7, o, 0, 0b0000_1000_1011_0010, 0x120, CMPSW,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xA8, o, 0, 0b0000_1000_1011_0010, 0x09C, TEST,    Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0xA9, o, 0, 0b0000_1000_1011_0010, 0x09C, TEST,    Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0xA7, o, 0, 0b0000_1000_1111_0010, 0x120, CMPSW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xA8, o, 0, 0b0000_1000_1001_0010, 0x09C, TEST,    Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
+    inst!( 0xA9, o, 0, 0b0000_1000_1101_0010, 0x09C, TEST,    Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
     inst!( 0xAA, o, 0, 0b0000_1000_1011_0010, 0x11c, STOSB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xAB, o, 0, 0b0000_1000_1011_0010, 0x11c, STOSW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xAB, o, 0, 0b0000_1000_1111_0010, 0x11c, STOSW,   Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xAC, o, 0, 0b0000_1000_1011_0010, 0x12c, LODSB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xAD, o, 0, 0b0000_1000_1011_0010, 0x12c, LODSW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xAD, o, 0, 0b0000_1000_1111_0010, 0x12c, LODSW,   Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xAE, o, 0, 0b0000_1000_1011_0010, 0x120, SCASB,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xAF, o, 0, 0b0000_1000_1011_0010, 0x120, SCASW,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xB0, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0xB1, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::CL),      Ot::Immediate8);
-    inst!( 0xB2, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::DL),      Ot::Immediate8);
-    inst!( 0xB3, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::BL),      Ot::Immediate8);
-    inst!( 0xB4, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::AH),      Ot::Immediate8);
-    inst!( 0xB5, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::CH),      Ot::Immediate8);
-    inst!( 0xB6, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::DH),      Ot::Immediate8);
-    inst!( 0xB7, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::BH),      Ot::Immediate8);
-    inst!( 0xB8, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
-    inst!( 0xB9, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::CX),Ot::Immediate16or32);
-    inst!( 0xBA, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::DX),Ot::Immediate16or32);
-    inst!( 0xBB, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::BX),Ot::Immediate16or32);
-    inst!( 0xBC, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::SP),Ot::Immediate16or32);
-    inst!( 0xBD, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::BP),Ot::Immediate16or32);
-    inst!( 0xBE, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::SI),Ot::Immediate16or32);
-    inst!( 0xBF, o, 0, 0b0000_0000_0011_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::DI),Ot::Immediate16or32);
+    inst!( 0xAF, o, 0, 0b0000_1000_1111_0010, 0x120, SCASW,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xB0, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
+    inst!( 0xB1, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::CL),      Ot::Immediate8);
+    inst!( 0xB2, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::DL),      Ot::Immediate8);
+    inst!( 0xB3, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::BL),      Ot::Immediate8);
+    inst!( 0xB4, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::AH),      Ot::Immediate8);
+    inst!( 0xB5, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::CH),      Ot::Immediate8);
+    inst!( 0xB6, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::DH),      Ot::Immediate8);
+    inst!( 0xB7, o, 0, 0b0000_0000_0001_0010, 0x01c, MOV,     Ot::FixedRegister8(Register8::BH),      Ot::Immediate8);
+    inst!( 0xB8, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::AX),Ot::Immediate16or32);
+    inst!( 0xB9, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::CX),Ot::Immediate16or32);
+    inst!( 0xBA, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::DX),Ot::Immediate16or32);
+    inst!( 0xBB, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::BX),Ot::Immediate16or32);
+    inst!( 0xBC, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::SP),Ot::Immediate16or32);
+    inst!( 0xBD, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::BP),Ot::Immediate16or32);
+    inst!( 0xBE, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::SI),Ot::Immediate16or32);
+    inst!( 0xBF, o, 0, 0b0000_0000_0101_0010, 0x01c, MOV,     Ot::FixedRegister16or32(Register16::DI),Ot::Immediate16or32);
+
     inst!( 0xC0, o, 5, 0b0000_0000_0011_0000, 0x0cc, Group,   Ot::Immediate16,                        Ot::NoOperand);
-    inst!( 0xC1, o, 6, 0b0000_0000_0011_0000, 0x0bc, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xC2, o, 0, 0b0000_0000_0011_0000, 0x0cc, RET,     Ot::Immediate16,                        Ot::NoOperand);
-    inst!( 0xC3, o, 0, 0b0000_0000_0011_0000, 0x0bc, RET,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xC4, o, 0, 0b0010_0000_0010_0000, 0x0f0, LES,     Ot::Register16or32,                     Ot::ModRM16);
-    inst!( 0xC5, o, 0, 0b0010_0000_0010_0000, 0x0f4, LDS,     Ot::Register16or32,                     Ot::ModRM16);
+    inst!( 0xC1, o, 6, 0b0000_0000_0111_0000, 0x0bc, Group,   Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xC2, o, 0, 0b0000_0000_0101_0000, 0x0cc, RET,     Ot::Immediate16,                        Ot::NoOperand);
+    inst!( 0xC3, o, 0, 0b0000_0000_0101_0000, 0x0bc, RET,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xC4, o, 0, 0b0010_0000_0110_0000, 0x0f0, LES,     Ot::Register16or32,                     Ot::ModRM16);
+    inst!( 0xC5, o, 0, 0b0010_0000_0110_0000, 0x0f4, LDS,     Ot::Register16or32,                     Ot::ModRM16);
     inst!( 0xC6, o, 0, 0b1000_1000_0010_0110, 0x014, MOV,     Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC7, o, 0, 0b1000_1000_0010_0110, 0x014, MOV,     Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0xC8, o, 0, 0b0000_0000_0011_0000, 0x0cc, ENTER,   Ot::Immediate16,                        Ot::Immediate8);
-    inst!( 0xC9, o, 0, 0b0000_0000_0011_0000, 0x0c0, LEAVE,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xCA, o, 0, 0b0000_0000_0011_0000, 0x0cc, RETF,    Ot::Immediate16,                        Ot::NoOperand);
-    inst!( 0xCB, o, 0, 0b0000_0000_0011_0000, 0x0c0, RETF,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xCC, o, 0, 0b0000_0000_0011_0000, 0x1b0, INT3,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xCD, o, 0, 0b0000_0000_0011_0000, 0x1a8, INT,     Ot::Immediate8,                         Ot::NoOperand);
-    inst!( 0xCE, o, 0, 0b0000_0000_0011_0000, 0x1ac, INTO,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xCF, o, 0, 0b0000_0000_0011_0000, 0x0c8, IRET,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD0, o, 7, 0b0000_1000_0000_0000, 0x088, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD1, o, 8, 0b0000_1000_0000_0000, 0x088, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD2, o, 9, 0b0000_1000_0000_0000, 0x08c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD3, o,10, 0b0000_1000_0000_0000, 0x08c, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD4, o, 0, 0b0001_0000_0011_0000, 0x174, AAM,     Ot::Immediate8,                         Ot::NoOperand);
-    inst!( 0xD5, o, 0, 0b0001_0000_0011_0000, 0x170, AAD,     Ot::Immediate8,                         Ot::NoOperand);
-    inst!( 0xD6, o, 0, 0b0001_0000_0011_0000, 0x0a0, SALC,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xC7, o, 0, 0b1000_1000_0110_0110, 0x014, MOV,     Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0xC8, o, 0, 0b0000_0000_0101_0000, 0x0cc, ENTER,   Ot::Immediate16,                        Ot::Immediate8);
+    inst!( 0xC9, o, 0, 0b0000_0000_0101_0000, 0x0c0, LEAVE,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xCA, o, 0, 0b0000_0000_0101_0000, 0x0cc, RETF,    Ot::Immediate16,                        Ot::NoOperand);
+    inst!( 0xCB, o, 0, 0b0000_0000_0101_0000, 0x0c0, RETF,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xCC, o, 0, 0b0000_0000_0001_0000, 0x1b0, INT3,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xCD, o, 0, 0b0000_0000_0001_0000, 0x1a8, INT,     Ot::Immediate8,                         Ot::NoOperand);
+    inst!( 0xCE, o, 0, 0b0000_0000_0001_0000, 0x1ac, INTO,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xCF, o, 0, 0b0000_0000_0101_0000, 0x0c8, IRET,    Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xD0, o, 7, 0b0000_1000_0010_0000, 0x088, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xD1, o, 8, 0b0000_1000_0110_0000, 0x088, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xD2, o, 9, 0b0000_1000_0010_0000, 0x08c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xD3, o,10, 0b0000_1000_0110_0000, 0x08c, Group,   Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xD4, o, 0, 0b0001_0000_0001_0000, 0x174, AAM,     Ot::Immediate8,                         Ot::NoOperand);
+    inst!( 0xD5, o, 0, 0b0001_0000_0001_0000, 0x170, AAD,     Ot::Immediate8,                         Ot::NoOperand);
+    inst!( 0xD6, o, 0, 0b0001_0000_0001_0000, 0x0a0, SALC,    Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xD7, o, 0, 0b0001_0000_0011_0000, 0x10c, XLAT,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xD8, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD9, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDA, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDB, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDC, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDD, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDE, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDF, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xE0, o, 0, 0b0000_0000_0011_0000, 0x138, LOOPNE,  Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0xE1, o, 0, 0b0000_0000_0011_0000, 0x138, LOOPE,   Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0xE2, o, 0, 0b0000_0000_0011_0000, 0x140, LOOP,    Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0xE3, o, 0, 0b0000_0000_0011_0000, 0x134, JCXZ,    Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0xE4, o, 0, 0b0000_1000_1011_0011, 0x0ac, IN,      Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
-    inst!( 0xE5, o, 0, 0b0000_1000_1011_0011, 0x0ac, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate8);
-    inst!( 0xE6, o, 0, 0b0000_1000_1011_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister8(Register8::AL));
-    inst!( 0xE7, o, 0, 0b0000_1000_1011_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0xE8, o, 0, 0b0000_0000_0011_0000, 0x07c, CALL,    Ot::Relative16,                         Ot::NoOperand);
-    inst!( 0xE9, o, 0, 0b0000_0000_0011_0000, 0x0d0, JMP,     Ot::Relative16,                         Ot::NoOperand);
-    inst!( 0xEA, o, 0, 0b0000_0000_0011_0000, 0x0e0, JMPF,    Ot::FarPointer,                         Ot::NoOperand);
-    inst!( 0xEB, o, 0, 0b1000_0000_0011_0000, 0x0d0, JMP,     Ot::Relative8,                          Ot::NoOperand);
-    inst!( 0xEC, o, 0, 0b0000_1000_1011_0011, 0x0b4, IN,      Ot::FixedRegister8(Register8::AL),      Ot::FixedRegister16(Register16::DX));
-    inst!( 0xED, o, 0, 0b0000_1000_1011_0011, 0x0b4, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::FixedRegister16(Register16::DX));
-    inst!( 0xEE, o, 0, 0b0000_1000_1011_0011, 0x0b8, OUT,     Ot::FixedRegister16(Register16::DX),    Ot::FixedRegister8(Register8::AL));
-    inst!( 0xEF, o, 0, 0b0000_1000_1011_0011, 0x0b8, OUT,     Ot::FixedRegister16(Register16::DX),    Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0xF0, o, 0, 0b0000_0100_0011_1010, 0x1FF, LOCK,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF1, o, 0, 0b0000_0100_0011_1010, 0x1FF, INT1,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF2, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF3, o, 0, 0b0000_0100_0011_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF4, o, 0, 0b0000_0100_0011_0010, 0x1FF, HLT,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF5, o, 0, 0b0000_0100_0011_0010, 0x1FF, CMC,     Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xD8, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xD9, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDA, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDB, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDC, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDD, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDE, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDF, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+
+    inst!( 0xE0, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPNE,  Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
+    inst!( 0xE1, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPE,   Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
+    inst!( 0xE2, o, 0, 0b0000_0000_0111_0000, 0x140, LOOP,    Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
+    inst!( 0xE3, o, 0, 0b0000_0000_0111_0000, 0x134, JCXZ,    Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0xE4, o, 0, 0b0000_1000_1001_0011, 0x0ac, IN,      Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
+    inst!( 0xE5, o, 0, 0b0000_1000_1101_0011, 0x0ac, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate8);
+    inst!( 0xE6, o, 0, 0b0000_1000_1001_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister8(Register8::AL));
+    inst!( 0xE7, o, 0, 0b0000_1000_1101_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister16or32(Register16::AX));
+    inst!( 0xE8, o, 0, 0b0000_0000_0101_0000, 0x07c, CALL,    Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0xE9, o, 0, 0b0000_0000_0101_0000, 0x0d0, JMP,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0xEA, o, 0, 0b0000_0000_0101_0000, 0x0e0, JMPF,    Ot::FarPointer,                         Ot::NoOperand);
+    inst!( 0xEB, o, 0, 0b1000_0000_0101_0000, 0x0d0, JMP,     Ot::Relative8,                          Ot::NoOperand);
+    inst!( 0xEC, o, 0, 0b0000_1000_1001_0011, 0x0b4, IN,      Ot::FixedRegister8(Register8::AL),      Ot::FixedRegister16(Register16::DX));
+    inst!( 0xED, o, 0, 0b0000_1000_1101_0011, 0x0b4, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::FixedRegister16(Register16::DX));
+    inst!( 0xEE, o, 0, 0b0000_1000_1001_0011, 0x0b8, OUT,     Ot::FixedRegister16(Register16::DX),    Ot::FixedRegister8(Register8::AL));
+    inst!( 0xEF, o, 0, 0b0000_1000_1101_0011, 0x0b8, OUT,     Ot::FixedRegister16(Register16::DX),    Ot::FixedRegister16or32(Register16::AX));
+
+    inst!( 0xF0, o, 0, 0b0000_0100_0001_1010, 0x1FF, LOCK,    Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xF1, o, 0, 0b0000_0100_0001_1010, 0x1FF, INT1,    Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xF2, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xF3, o, 0, 0b0000_0100_0001_1010, 0x1FF, Prefix,  Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xF4, o, 0, 0b0000_0100_0001_0010, 0x1FF, HLT,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xF5, o, 0, 0b0000_0100_0001_0010, 0x1FF, CMC,     Ot::NoOperand,                          Ot::NoOperand);
+
     inst!( 0xF6, o,11, 0b0000_1000_0010_0100, 0x098, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF7, o,12, 0b0000_1000_0010_0100, 0x160, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF8, o, 0, 0b0000_0100_0111_0010, 0x1FF, CLC,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xF9, o, 0, 0b0000_0100_0111_0010, 0x1FF, STC,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xFA, o, 0, 0b0000_0100_0111_0010, 0x1FF, CLI,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xFB, o, 0, 0b0000_0100_0111_0010, 0x1FF, STI,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xFC, o, 0, 0b0000_0100_0111_0010, 0x1FF, CLD,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xFD, o, 0, 0b0000_0100_0111_0010, 0x1FF, STD,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xF7, o,12, 0b0000_1000_0110_0100, 0x160, Group,   Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xF8, o, 0, 0b0000_0100_0001_0010, 0x1FF, CLC,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xF9, o, 0, 0b0000_0100_0001_0010, 0x1FF, STC,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xFA, o, 0, 0b0000_0100_0001_0010, 0x1FF, CLI,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xFB, o, 0, 0b0000_0100_0001_0010, 0x1FF, STI,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xFC, o, 0, 0b0000_0100_0001_0010, 0x1FF, CLD,     Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xFD, o, 0, 0b0000_0100_0001_0010, 0x1FF, STD,     Ot::NoOperand,                          Ot::NoOperand);
+
     inst!( 0xFE, o,13, 0b0000_1000_0010_0000, 0x020, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xFF, o,14, 0b0000_1000_0010_0000, 0x026, Group,   Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xFF, o,14, 0b0000_1000_0110_0000, 0x026, Group,   Ot::NoOperand,                          Ot::NoOperand);
     // Group
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, ADD  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, OR   ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, ADC  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, SBB  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, AND  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, SUB  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, XOR  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x80, o, 1, 0b1000_1000_0000_0000, 0x00c, CMP  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, ADD  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, OR   ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, ADC  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, SBB  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, AND  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, SUB  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, XOR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x80, o, 1, 0b1000_1000_0010_0000, 0x00c, CMP  ,   Ot::ModRM8,                             Ot::Immediate8);
     // Group
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, ADD  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, OR   ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, ADC  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, SBB  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, AND  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, SUB  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, XOR  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0x81, o, 1, 0b1000_1000_0000_0000, 0x00c, CMP  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, ADD  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, OR   ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, ADC  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, SBB  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, AND  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, SUB  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, XOR  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0x81, o, 1, 0b1000_1000_0110_0000, 0x00c, CMP  ,   Ot::ModRM16or32,                        Ot::Immediate16or32);
     // Group,
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, ADD  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, OR   ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, ADC  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, SBB  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, AND  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, SUB  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, XOR  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0x82, o, 1, 0b1000_1000_0000_0000, 0x00c, CMP  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, ADD  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, OR   ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, ADC  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, SBB  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, AND  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, SUB  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, XOR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0x82, o, 1, 0b1000_1000_0010_0000, 0x00c, CMP  ,   Ot::ModRM8,                             Ot::Immediate8);
     // Group
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, ADD  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, OR   ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, ADC  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, SBB  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, AND  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, SUB  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, XOR  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
-    inst!( 0x83, o, 1, 0b1000_1000_0000_0000, 0x00c, CMP  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, ADD  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, OR   ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, ADC  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, SBB  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, AND  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, SUB  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, XOR  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
+    inst!( 0x83, o, 1, 0b1000_1000_0110_0000, 0x00c, CMP  ,   Ot::ModRM16or32,                        Ot::Immediate8SignExtended16);
     // Group
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, SAL  ,   Ot::ModRM8,                             Ot::Immediate8);
-    inst!( 0xC0, o, 2, 0b1000_1000_0000_0000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, SAL  ,   Ot::ModRM8,                             Ot::Immediate8);
+    inst!( 0xC0, o, 2, 0b1000_1000_0010_0000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::Immediate8);
     // Group
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, ROL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, ROR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, RCL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, RCR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, SHL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, SHR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, SAL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xC1, o, 2, 0b1000_1000_0000_0000, 0x088, SAR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, ROL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, ROR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, RCL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, RCR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, SHL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, SHR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, SAL  ,   Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xC1, o, 2, 0b1000_1000_0110_0000, 0x088, SAR  ,   Ot::ModRM16or32,                        Ot::Immediate8);
     // Group
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, SAL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
-    inst!( 0xD0, o, 3, 0b1000_1000_0000_0000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, SAL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b1000_1000_0010_0000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
     // Group
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, ROL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, ROR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, RCL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, RCR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, SHL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, SHR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, SAL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
-    inst!( 0xD1, o, 3, 0b1000_1000_0000_0000, 0x088, SAR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, ROL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, ROR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, RCL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, RCR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, SHL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, SHR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, SAL  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b1000_1000_0110_0000, 0x088, SAR  ,   Ot::ModRM16or32,                        Ot::FixedImmediate8(1));
     // Group
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, ROL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, ROR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, RCL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, RCR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, SHL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, SHR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, SAL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD2, o, 4, 0b1000_1000_0000_0000, 0x08c, SAR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, ROL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, ROR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, RCL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, RCR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, SHL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, SHR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, SAL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD2, o, 4, 0b1000_1000_0010_0000, 0x08c, SAR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
     // Group
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, ROL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, ROR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, RCL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, RCR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, SHL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, SHR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, SAL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
-    inst!( 0xD3, o, 4, 0b1000_1000_0000_0000, 0x08c, SAR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, ROL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, ROR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, RCL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, RCR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, SHL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, SHR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, SAL   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
+    inst!( 0xD3, o, 4, 0b1000_1000_0110_0000, 0x08c, SAR   ,  Ot::ModRM16or32,                        Ot::FixedRegister8(Register8::CL));
     // Group
     inst!( 0xF6, o, 5, 0b1000_1000_0010_0000, 0x098, TEST  ,  Ot::ModRM8,                             Ot::Immediate8);
     inst!( 0xF6, o, 5, 0b1000_1000_0010_0000, 0x098, TEST  ,  Ot::ModRM8,                             Ot::Immediate8);
@@ -937,108 +985,109 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xF6, o, 5, 0b1000_1000_0010_0000, 0x098, DIV   ,  Ot::ModRM8,                             Ot::NoOperand);
     inst!( 0xF6, o, 5, 0b1000_1000_0010_0000, 0x098, IDIV  ,  Ot::ModRM8,                             Ot::NoOperand);
     // Group
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, TEST  ,  Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, TEST  ,  Ot::ModRM16or32,                        Ot::Immediate16or32);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, NOT   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, NEG   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, MUL   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, IMUL  ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, DIV   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xF7, o, 5, 0b1000_1000_0010_0000, 0x160, IDIV  ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, TEST  ,  Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, TEST  ,  Ot::ModRM16or32,                        Ot::Immediate16or32);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, NOT   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, NEG   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, MUL   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, IMUL  ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, DIV   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xF7, o, 5, 0b1000_1000_0110_0000, 0x160, IDIV  ,  Ot::ModRM16or32,                        Ot::NoOperand);
     // Group
     inst!( 0xFE, o, 6, 0b1000_1000_0010_0000, 0x020, INC   ,  Ot::ModRM8,                             Ot::NoOperand);
     inst!( 0xFE, o, 6, 0b1000_1000_0010_0000, 0x020, DEC   ,  Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xFE, o, 6, 0b0000_1000_0010_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xFE, o, 6, 0b0000_1000_0000_0000, 0x020, Invalid, Ot::ModRM8,                             Ot::NoOperand);
     // Group
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, INC   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, DEC   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, CALL  ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1010_1000_0010_0000, 0x026, CALLF ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, JMP   ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1010_1000_0010_0000, 0x026, JMPF  ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, PUSH  ,  Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xFF, o, 6, 0b1000_1000_0010_0000, 0x026, Invalid, Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, INC   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, DEC   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, CALL  ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1010_1000_0110_0000, 0x026, CALLF ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, JMP   ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1010_1000_0110_0000, 0x026, JMPF  ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, PUSH  ,  Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0xFF, o, 6, 0b1000_1000_0110_0000, 0x026, Invalid, Ot::ModRM16or32,                        Ot::NoOperand);
     // END OF REGULAR INTEL OPCODES (0-367)
     // 0F extended opcodes follow.
-    inst!( 0x00, o, 1, 0b0000_1000_0001_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x01, o, 2, 0b0000_1000_0000_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x02, o, 0, 0b0000_1000_0000_0000, 0x000, LAR,     Ot::Register16,                         Ot::ModRM16);
-    inst!( 0x03, o, 0, 0b0000_1000_0000_0000, 0x000, LSL,     Ot::Register16,                         Ot::ModRM16);
+    inst!( 0x00, o, 1, 0b0000_1000_0010_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x01, o, 2, 0b0000_1000_0010_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x02, o, 0, 0b0000_1000_0110_0000, 0x000, LAR,     Ot::Register16,                         Ot::ModRM16);
+    inst!( 0x03, o, 0, 0b0000_1000_0110_0000, 0x000, LSL,     Ot::Register16,                         Ot::ModRM16);
     inst_skip!(o, 2); // Skip 0x04 & 0x05
     inst!( 0x06, o, 0, 0b0000_1000_0000_0000, 0x000, CLTS,    Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x07, o, 0, 0b0000_1000_0000_0000, 0x000, LOADALL, Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0x07, o, 0, 0b0000_1000_0010_0000, 0x000, LOADALL, Ot::NoOperand,                          Ot::NoOperand);
     inst_skip!(o, 24); // Skip 0x08-0x19
     inst!( 0x20, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::ControlRegister);
     inst!( 0x21, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::DebugRegister);
     inst!( 0x22, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ControlRegister,                    Ot::ModRM32);
     inst!( 0x23, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::DebugRegister,                      Ot::ModRM32);
     inst_skip!(o, 92); // Skip 0x24-0x7F
-    inst!( 0x80, o, 0, 0b1000_0000_0001_0000, 0x000, JO,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x81, o, 0, 0b1000_0000_0001_0000, 0x000, JNO,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x82, o, 0, 0b1000_0000_0001_0000, 0x000, JB,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x83, o, 0, 0b1000_0000_0001_0000, 0x000, JNB,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x84, o, 0, 0b1000_0000_0001_0000, 0x000, JZ,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x85, o, 0, 0b1000_0000_0001_0000, 0x000, JNZ,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x86, o, 0, 0b1000_0000_0001_0000, 0x000, JBE,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x87, o, 0, 0b1000_0000_0001_0000, 0x000, JNBE,    Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x88, o, 0, 0b1000_0000_0001_0000, 0x000, JS,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x89, o, 0, 0b1000_0000_0001_0000, 0x000, JNS,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8A, o, 0, 0b1000_0000_0001_0000, 0x000, JP,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8B, o, 0, 0b1000_0000_0001_0000, 0x000, JNP,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8C, o, 0, 0b1000_0000_0001_0000, 0x000, JL,      Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8D, o, 0, 0b1000_0000_0001_0000, 0x000, JNL,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8E, o, 0, 0b1000_0000_0001_0000, 0x000, JLE,     Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x8F, o, 0, 0b1000_0000_0001_0000, 0x000, JNLE,    Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0x90, o, 0, 0b0000_0000_0000_0000, 0x000, SETO,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x91, o, 0, 0b0000_0000_0000_0000, 0x000, SETNO,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x92, o, 0, 0b0000_0000_0000_0000, 0x000, SETB,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x93, o, 0, 0b0000_0000_0000_0000, 0x000, SETNB,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x94, o, 0, 0b0000_0000_0000_0000, 0x000, SETZ,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x95, o, 0, 0b0000_0000_0000_0000, 0x000, SETNZ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x96, o, 0, 0b0000_0000_0000_0000, 0x000, SETBE,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x97, o, 0, 0b0000_0000_0000_0000, 0x000, SETNBE,  Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x98, o, 0, 0b0000_0000_0000_0000, 0x000, SETS,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x99, o, 0, 0b0000_0000_0000_0000, 0x000, SETNS,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9A, o, 0, 0b0000_0000_0000_0000, 0x000, SETP,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9B, o, 0, 0b0000_0000_0000_0000, 0x000, SETNP,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9C, o, 0, 0b0000_0000_0000_0000, 0x000, SETL,    Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9D, o, 0, 0b0000_0000_0000_0000, 0x000, SETNL,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9E, o, 0, 0b0000_0000_0000_0000, 0x000, SETLE,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0x9F, o, 0, 0b0000_0000_0000_0000, 0x000, SETNLE,  Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xA0, o, 0, 0b0000_0000_0001_0000, 0x000, PUSH,    Ot::FixedRegister16or32(Register16::FS),Ot::NoOperand);
-    inst!( 0xA1, o, 0, 0b0000_0000_0001_0000, 0x000, POP,     Ot::FixedRegister16or32(Register16::FS),Ot::NoOperand);
+    inst!( 0x80, o, 0, 0b1000_0000_0101_0000, 0x000, JO,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x81, o, 0, 0b1000_0000_0101_0000, 0x000, JNO,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x82, o, 0, 0b1000_0000_0101_0000, 0x000, JB,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x83, o, 0, 0b1000_0000_0101_0000, 0x000, JNB,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x84, o, 0, 0b1000_0000_0101_0000, 0x000, JZ,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x85, o, 0, 0b1000_0000_0101_0000, 0x000, JNZ,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x86, o, 0, 0b1000_0000_0101_0000, 0x000, JBE,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x87, o, 0, 0b1000_0000_0101_0000, 0x000, JNBE,    Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x88, o, 0, 0b1000_0000_0101_0000, 0x000, JS,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x89, o, 0, 0b1000_0000_0101_0000, 0x000, JNS,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8A, o, 0, 0b1000_0000_0101_0000, 0x000, JP,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8B, o, 0, 0b1000_0000_0101_0000, 0x000, JNP,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8C, o, 0, 0b1000_0000_0101_0000, 0x000, JL,      Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8D, o, 0, 0b1000_0000_0101_0000, 0x000, JNL,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8E, o, 0, 0b1000_0000_0101_0000, 0x000, JLE,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x8F, o, 0, 0b1000_0000_0101_0000, 0x000, JNLE,    Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0x90, o, 0, 0b0000_0000_0010_0000, 0x000, SETO,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x91, o, 0, 0b0000_0000_0010_0000, 0x000, SETNO,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x92, o, 0, 0b0000_0000_0010_0000, 0x000, SETB,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x93, o, 0, 0b0000_0000_0010_0000, 0x000, SETNB,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x94, o, 0, 0b0000_0000_0010_0000, 0x000, SETZ,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x95, o, 0, 0b0000_0000_0010_0000, 0x000, SETNZ,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x96, o, 0, 0b0000_0000_0010_0000, 0x000, SETBE,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x97, o, 0, 0b0000_0000_0010_0000, 0x000, SETNBE,  Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x98, o, 0, 0b0000_0000_0010_0000, 0x000, SETS,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x99, o, 0, 0b0000_0000_0010_0000, 0x000, SETNS,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9A, o, 0, 0b0000_0000_0010_0000, 0x000, SETP,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9B, o, 0, 0b0000_0000_0010_0000, 0x000, SETNP,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9C, o, 0, 0b0000_0000_0010_0000, 0x000, SETL,    Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9D, o, 0, 0b0000_0000_0010_0000, 0x000, SETNL,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9E, o, 0, 0b0000_0000_0010_0000, 0x000, SETLE,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0x9F, o, 0, 0b0000_0000_0010_0000, 0x000, SETNLE,  Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xA0, o, 0, 0b0000_0000_0101_0000, 0x000, PUSH,    Ot::FixedRegister16or32(Register16::FS),Ot::NoOperand);
+    inst!( 0xA1, o, 0, 0b0000_0000_0101_0000, 0x000, POP,     Ot::FixedRegister16or32(Register16::FS),Ot::NoOperand);
     inst_skip!(o, 1);
-    inst!( 0xA3, o, 0, 0b0000_0000_0000_0000, 0x000, BT,      Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0xA4, o, 0, 0b0000_0000_0000_0000, 0x000, SHLD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::Immediate8);
-    inst!( 0xA5, o, 0, 0b0000_0000_0000_0000, 0x000, SHLD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::FixedRegister8(Register8::CL));
+    inst!( 0xA3, o, 0, 0b0000_0000_0110_0000, 0x000, BT,      Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0xA4, o, 0, 0b0000_0000_0110_0000, 0x000, SHLD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::Immediate8);
+    inst!( 0xA5, o, 0, 0b0000_0000_0110_0000, 0x000, SHLD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::FixedRegister8(Register8::CL));
     inst_skip!(o, 2);
-    inst!( 0xA8, o, 0, 0b0000_0000_0001_0000, 0x000, PUSH,    Ot::FixedRegister16or32(Register16::GS),Ot::NoOperand);
-    inst!( 0xA9, o, 0, 0b0000_0000_0001_0000, 0x000, POP,     Ot::FixedRegister16or32(Register16::GS),Ot::NoOperand);
+    inst!( 0xA8, o, 0, 0b0000_0000_0101_0000, 0x000, PUSH,    Ot::FixedRegister16or32(Register16::GS),Ot::NoOperand);
+    inst!( 0xA9, o, 0, 0b0000_0000_0101_0000, 0x000, POP,     Ot::FixedRegister16or32(Register16::GS),Ot::NoOperand);
     inst!( 0xAA, o, 0, 0b0000_0000_0001_0000, 0x000, RSM,     Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xAB, o, 0, 0b0000_0000_0000_0000, 0x000, BTS,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0xAC, o, 0, 0b0000_0000_0000_0000, 0x000, SHRD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::Immediate8);
-    inst!( 0xAD, o, 0, 0b0000_0000_0000_0000, 0x000, SHRD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::FixedRegister8(Register8::CL));
+    inst!( 0xAB, o, 0, 0b0000_0000_0110_0000, 0x000, BTS,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0xAC, o, 0, 0b0000_0000_0110_0000, 0x000, SHRD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::Immediate8);
+    inst!( 0xAD, o, 0, 0b0000_0000_0110_0000, 0x000, SHRD,    Ot::ModRM16or32,                        Ot::Register16or32, Ot::FixedRegister8(Register8::CL));
     inst_skip!(o, 1);
-    inst!( 0xAF, o, 0, 0b0000_0000_0000_0000, 0x000, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xAF, o, 0, 0b0000_0000_0110_0000, 0x000, IMUL,    Ot::Register16or32,                     Ot::ModRM16or32);
     inst_skip!(o, 2);
-    inst!( 0xB2, o, 0, 0b0010_0000_0000_0000, 0x000, LSS,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0xB3, o, 0, 0b0000_0000_0000_0000, 0x000, BTR,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0xB4, o, 0, 0b0010_0000_0000_0000, 0x000, LFS,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0xB5, o, 0, 0b0010_0000_0000_0000, 0x000, LGS,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0xB6, o, 0, 0b1000_0000_0000_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM8);
-    inst!( 0xB7, o, 0, 0b1000_0000_0000_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM16);
+    inst!( 0xB2, o, 0, 0b0010_0000_0110_0000, 0x000, LSS,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xB3, o, 0, 0b0000_0000_0110_0000, 0x000, BTR,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0xB4, o, 0, 0b0010_0000_0110_0000, 0x000, LFS,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xB5, o, 0, 0b0010_0000_0110_0000, 0x000, LGS,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xB6, o, 0, 0b1000_0000_0110_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM8);
+    inst!( 0xB7, o, 0, 0b1000_0000_0110_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM16);
     inst_skip!(o, 2);
-    inst!( 0xBA, o, 3, 0b0000_0000_0000_0000, 0x000, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xBB, o, 0, 0b0000_0000_0000_0000, 0x000, BTC,     Ot::ModRM16or32,                        Ot::Register16or32);
-    inst!( 0xBC, o, 0, 0b0000_0000_0000_0000, 0x000, BSF,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0xBD, o, 0, 0b0000_0000_0000_0000, 0x000, BSR,     Ot::Register16or32,                     Ot::ModRM16or32);
-    inst!( 0xBE, o, 0, 0b1000_0000_0000_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM8);
-    inst!( 0xBF, o, 0, 0b1000_0000_0000_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM16);
+    inst!( 0xBA, o, 3, 0b0000_0000_0110_0000, 0x000, Group,   Ot::NoOperand,                          Ot::NoOperand);
+
+    inst!( 0xBB, o, 0, 0b0000_0000_0110_0000, 0x000, BTC,     Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0xBC, o, 0, 0b0000_0000_0110_0000, 0x000, BSF,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xBD, o, 0, 0b0000_0000_0110_0000, 0x000, BSR,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0xBE, o, 0, 0b1000_0000_0110_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM8);
+    inst!( 0xBF, o, 0, 0b1000_0000_0110_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM16);
     inst_skip!(o, 63); // Skip 0xC0-0xFF
     inst!( 0xFF, o, 0, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::NoOperand,                          Ot::NoOperand);
     // Group 6
@@ -1064,10 +1113,10 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xBA, o, 3, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::ModRM16or32,                        Ot::NoOperand);
     inst!( 0xBA, o, 3, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::ModRM16or32,                        Ot::NoOperand);
     inst!( 0xBA, o, 3, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0xBA, o, 3, 0b1000_0000_0000_0000, 0x000, BT,      Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xBA, o, 3, 0b1000_0000_0000_0000, 0x000, BTS,     Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xBA, o, 3, 0b1000_0000_0000_0000, 0x000, BTR,     Ot::ModRM16or32,                        Ot::Immediate8);
-    inst!( 0xBA, o, 3, 0b1000_0000_0000_0000, 0x000, BTC,     Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xBA, o, 3, 0b1000_0000_0110_0000, 0x000, BT,      Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xBA, o, 3, 0b1000_0000_0110_0000, 0x000, BTS,     Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xBA, o, 3, 0b1000_0000_0110_0000, 0x000, BTR,     Ot::ModRM16or32,                        Ot::Immediate8);
+    inst!( 0xBA, o, 3, 0b1000_0000_0110_0000, 0x000, BTC,     Ot::ModRM16or32,                        Ot::Immediate8);
 
     assert!(o.idx == o.table.len());
     o.table
@@ -1083,6 +1132,7 @@ impl Intel80386 {
 
         // Start out valid, we'll set to false if we encounter an issue
         instruction.is_valid = true;
+        instruction.segment_size = segment_size;
 
         // Read an initial byte as our opcode or first prefix
         let mut opcode = match bytes.read_u8() {
@@ -1094,6 +1144,7 @@ impl Intel80386 {
         };
 
         let mut op_prefixes: u32 = 0;
+        let mut prefix_candidates: u32 = 0;
         let mut op_segment_override = None;
         let mut decode_idx_base= 0;
 
@@ -1107,12 +1158,11 @@ impl Intel80386 {
         // Read in opcode prefixes until exhausted
         loop {
             // Set flags for all prefixes encountered...
-            op_prefixes |= match opcode {
+            match opcode {
                 0x0F => {
                     op_prefixes |= PrefixFlags::EXTENDED_0F;
                     // 0F prefixed-instructions exist in table after all regular Intel instructions
-                    // Nothing can follow an 0F prefix; so start instruction now. Fetching the
-                    // extended opcode counts as a Subsequent write based on queue status flags.
+                    // Nothing can follow an 0F prefix; so start instruction now.
 
                     opcode = match bytes.read_u8() {
                         Ok(byte) => {
@@ -1127,38 +1177,48 @@ impl Intel80386 {
                 }
                 0x26 => {
                     op_segment_override = Some(Register16::ES);
-                    PrefixFlags::ES_OVERRIDE
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::ES_OVERRIDE
                 },
                 0x2E => {
                     op_segment_override = Some(Register16::CS);
-                    PrefixFlags::CS_OVERRIDE
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::CS_OVERRIDE
                 },
                 0x36 => {
                     op_segment_override = Some(Register16::SS);
-                    PrefixFlags::SS_OVERRIDE
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::SS_OVERRIDE
                 }
                 0x3E => {
                     op_segment_override = Some(Register16::DS);
-                    PrefixFlags::DS_OVERRIDE
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::DS_OVERRIDE
                 },
                 0x64 => {
                     op_segment_override = Some(Register16::FS);
-                    PrefixFlags::FS_OVERRIDE
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::FS_OVERRIDE
                 },
                 0x65 => {
-                    op_segment_override = Some(Register16::SS);
-                    PrefixFlags::GS_OVERRIDE
+                    op_segment_override = Some(Register16::GS);
+                    op_prefixes &= !PrefixFlags::SEG_OVERRIDE_MASK;
+                    op_prefixes |= PrefixFlags::GS_OVERRIDE
                 },
-                0xF0 => PrefixFlags::LOCK,
-                0xF2 => PrefixFlags::REP1,
-                0xF3 => PrefixFlags::REP2,
+                0xF0 => op_prefixes |= PrefixFlags::LOCK,
+                0xF2 => {
+                    op_prefixes &= !PrefixFlags::REP_MASK;
+                    op_prefixes |= PrefixFlags::REP1
+                },
+                0xF3 => {
+                    op_prefixes &= !PrefixFlags::REP_MASK;
+                    op_prefixes |= PrefixFlags::REP2
+                },
                 0x66 => {
-                    operand_size = segment_size.operand_size_override();
-                    PrefixFlags::OPERAND_SIZE
+                    prefix_candidates |= PrefixFlags::OPERAND_SIZE
                 },
                 0x67 => {
-                    address_size = segment_size.address_size_override();
-                    PrefixFlags::ADDRESS_SIZE
+                    prefix_candidates |= PrefixFlags::ADDRESS_SIZE
                 },
                 _=> {
                     break;
@@ -1183,7 +1243,7 @@ impl Intel80386 {
         }
 
 
-        instruction.prefix_flags = op_prefixes;
+
         // Set the segment override
         instruction.segment_override = op_segment_override;
 
@@ -1192,6 +1252,20 @@ impl Intel80386 {
         let mut op_lu = &DECODE[decode_idx];
 
         let force_reg = op_lu.gdr.is_always_register();
+
+        // Resolve pending prefixes
+        if (prefix_candidates & PrefixFlags::OPERAND_SIZE != 0) && op_lu.gdr.can_have_operand_size() {
+            // This instruction can be affected by an operand-size override prefix
+            op_prefixes |= PrefixFlags::OPERAND_SIZE;
+            operand_size = operand_size.with_override();
+        }
+        if (prefix_candidates & PrefixFlags::ADDRESS_SIZE != 0) && op_lu.gdr.can_have_address_size() {
+            // This instruction can be affected by an address-size override prefix
+            op_prefixes |= PrefixFlags::ADDRESS_SIZE;
+            address_size = address_size.with_override();
+        }
+
+        instruction.prefix_flags = op_prefixes;
 
         // Prepare to read Mod/RM
         let mut displacement = Displacement::NoDisp;
@@ -1245,6 +1319,8 @@ impl Intel80386 {
                     }
                 }
 
+                instruction.operand_size = operand_size;
+                instruction.address_size = address_size;
                 instruction.operand1_type = op_lu.operand1.resolve_operand_a16(bytes, operand_size, &modrm, displacement, &mut instruction, force_reg)?;
                 instruction.operand2_type = op_lu.operand2.resolve_operand_a16(bytes, operand_size, &modrm, displacement, &mut instruction, force_reg)?;
                 instruction.operand3_type = op_lu.operand3.resolve_operand_a16(bytes, operand_size, &modrm, displacement, &mut instruction, force_reg)?;
@@ -1296,6 +1372,8 @@ impl Intel80386 {
                     }
                 }
 
+                instruction.operand_size = operand_size;
+                instruction.address_size = address_size;
                 instruction.operand1_type = op_lu.operand1.resolve_operand_a32(bytes, operand_size, &modrm32, &sib, displacement, &mut instruction, force_reg)?;
                 instruction.operand2_type = op_lu.operand2.resolve_operand_a32(bytes, operand_size, &modrm32, &sib, displacement, &mut instruction, force_reg)?;
                 instruction.operand3_type = op_lu.operand3.resolve_operand_a32(bytes, operand_size, &modrm32, &sib, displacement, &mut instruction, force_reg)?;
@@ -1308,12 +1386,22 @@ impl Intel80386 {
         if instruction.instruction_bytes.len() > MAX_INSTRUCTION_LENGTH {
             instruction.is_valid = false;
         }
-        instruction.operand_size = operand_size;
-        instruction.address_size = address_size;
-        instruction.mnemonic = match operand_size {
-            OperandSize::Operand32 => op_lu.mnemonic.wide32(),
+
+        instruction.mnemonic = match instruction.operand_size {
+            OperandSize::Operand32 => {
+                op_lu.mnemonic.wide_o32()
+            },
             _ => op_lu.mnemonic,
         };
+
+        instruction.mnemonic = match instruction.address_size {
+            AddressSize::Address32 => instruction.mnemonic.wide_a32(),
+            _ => instruction.mnemonic,
+        };
+
+        if instruction.has_operand_size_override() {
+            instruction.mnemonic = instruction.mnemonic.operand_size_override(instruction.operand_size);
+        }
 
         instruction.disambiguate = op_lu.gdr.needs_disambiguation();
 

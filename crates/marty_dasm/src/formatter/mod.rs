@@ -118,25 +118,29 @@ pub trait Format {
 
     /// Compose the full instruction from parts (default behavior)
     fn format_instruction(&self, inst: &Instruction, opts: &FormatOptions, out: &mut dyn FormatterOutput) {
+        if opts.mnemonic_only {
+            // if only the mnemonic is requested, suppress operands
+            self.format_mnemonic(inst, opts, out);
+            return;
+        }
+
         if matches!(inst.mnemonic, Mnemonic::Invalid) || !inst.is_complete || !inst.is_valid {
             out.write_text("(bad)");
-            if matches!(inst.mnemonic, Mnemonic::Invalid) || opts.mnemonic_only {
+            if matches!(inst.mnemonic, Mnemonic::Invalid) {
                 return;
             }
             out.write_separator(" ");
         }
 
         // prefixes
-        if !opts.mnemonic_only {
-            self.format_prefixes(inst, opts, out);
-        }
+        self.format_prefixes(inst, opts, out);
 
         // space between prefixes and mnemonic if prefixes emitted any visible output is left to implementations;
         // minimal NASM implementation emits no prefixes for now, so we don't add spaces here.
         // mnemonic
         self.format_mnemonic(inst, opts, out);
 
-        if !opts.mnemonic_only && inst.has_operands() && !self.operands_suppressed(inst) {
+        if inst.has_operands() && !self.operands_suppressed(inst) {
             out.write_separator(" ");
             self.format_operands(inst, opts, out);
         }

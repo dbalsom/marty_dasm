@@ -34,8 +34,9 @@ pub const GDR_REG_0: u16            = 0b0000_0000_0000_0100; // Instruction must
 pub const GDR_PREFIX: u16           = 0b0000_0000_0000_1000; // Instruction is a prefix byte
 pub const GDR_NO_MODRM: u16         = 0b0000_0000_0001_0000; // Instruction does not have a modrm byte
 
-pub const GDR_SPECIAL_ALU: u16      = 0b0000_0000_0010_0000;
-pub const GDR_CLEARS_COND: u16      = 0b0000_0000_0100_0000;
+pub const GDR_CAN_HAVE_ADDRESS_SIZE: u16 = 0b0000_0000_0010_0000;
+pub const GDR_CAN_HAVE_OPERAND_SIZE: u16 = 0b0000_0000_0100_0000;
+
 pub const GDR_USES_AREG: u16        = 0b0000_0000_1000_0000; // Instruction uses the AL or AX register specifically
 pub const GDR_USES_SREG: u16        = 0b0000_0001_0000_0000; // Instruction uses a segment register
 pub const GDR_D_VALID: u16          = 0b0000_0010_0000_0000; // 'D' bit is valid for instruction
@@ -78,6 +79,14 @@ impl GdrEntry {
         else {
             OperandSize::Operand8
         }
+    }
+    #[inline(always)]
+    pub fn can_have_operand_size(&self) -> bool {
+        self.0 & GDR_CAN_HAVE_OPERAND_SIZE != 0
+    }
+    #[inline(always)]
+    pub fn can_have_address_size(&self) -> bool {
+        self.0 & GDR_CAN_HAVE_ADDRESS_SIZE != 0
     }
     #[inline(always)]
     pub fn d_valid(&self) -> bool {
