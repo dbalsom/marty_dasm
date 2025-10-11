@@ -45,13 +45,18 @@ pub fn format_iced_instruction(iced_i: &iced_x86::Instruction) -> String {
     instr_text = instr_text.replace("cs lock j", "lock j");
     instr_text = instr_text.replace("ds j", "j");
     instr_text = instr_text.replace("ds lock j", "lock j");
+    instr_text = instr_text.replace("rep ret", "ret");
+    instr_text = instr_text.replace("str e", "str ");
 
     instr_text
 }
 
-pub fn format_marty_instruction(marty_i: &Instruction) -> String {
+pub fn format_marty_instruction(marty_i: &Instruction, ip: u32) -> String {
     let mut output = String::new();
-    let mut options = FormatOptions::default();
+    let mut options = FormatOptions {
+        ip,
+        ..FormatOptions::default()
+    };
     options.iced_mnemonics = true;
 
     NasmFormatter.format_instruction(&marty_i, &options, &mut output);

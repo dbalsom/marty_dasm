@@ -171,6 +171,7 @@ pub const DREGISTER_LUT: [DebugRegister; 8] = [
 ];
 
 impl Register16 {
+    #[inline]
     pub fn is_segment(&self) -> bool {
         matches!(
             self,
@@ -278,6 +279,16 @@ pub enum Register32 {
     GS,
     PC,
     InvalidRegister,
+}
+
+impl Register32 {
+    #[inline]
+    pub fn is_segment(&self) -> bool {
+        matches!(
+            self,
+            Register32::ES | Register32::CS | Register32::SS | Register32::DS | Register32::FS | Register32::GS
+        )
+    }
 }
 
 impl From<Register16> for Register32 {
@@ -395,6 +406,15 @@ pub enum OperandSize {
     Operand8,
     Operand16,
     Operand32,
+}
+
+impl From<SegmentSize> for OperandSize {
+    fn from(size: SegmentSize) -> Self {
+        match size {
+            SegmentSize::Segment16 => OperandSize::Operand16,
+            SegmentSize::Segment32 => OperandSize::Operand32,
+        }
+    }
 }
 
 impl OperandSize {
@@ -809,6 +829,50 @@ pub enum OperandType {
 }
 
 impl OperandType {
+    pub fn size(&self) -> OperandSize {
+        match self {
+            OperandType::Immediate8(_) | OperandType::Immediate8s(_) | OperandType::Relative8(_) => {
+                OperandSize::Operand8
+            }
+            OperandType::Immediate16(_)
+            | OperandType::Relative16(_)
+            | OperandType::Offset16_16(_)
+            | OperandType::Offset32_16(_)
+            | OperandType::Offset8_16(_) => OperandSize::Operand16,
+            OperandType::Immediate32(_)
+            | OperandType::Relative32(_)
+            | OperandType::Offset8_32(_)
+            | OperandType::Offset32_32(_)
+            | OperandType::Offset16_32(_) => OperandSize::Operand32,
+            OperandType::Register8(_) => OperandSize::Operand8,
+            OperandType::Register16(_) => OperandSize::Operand16,
+            OperandType::Register32(_) => OperandSize::Operand32,
+            OperandType::ControlRegister(_) => OperandSize::Operand32,
+            OperandType::DebugRegister(_) => OperandSize::Operand32,
+            OperandType::AddressingMode16(_, size) => *size,
+            OperandType::AddressingMode32(_, size) => *size,
+            _ => OperandSize::NoOperand,
+        }
+    }
+
+    #[inline(always)]
+    pub fn is_memory(&self) -> bool {
+        matches!(
+            self,
+            OperandType::AddressingMode16(_, _)
+                | OperandType::AddressingMode32(_, _)
+                | OperandType::Offset8_16(_)
+                | OperandType::Offset8_32(_)
+                | OperandType::Offset16_16(_)
+                | OperandType::Offset16_32(_)
+                | OperandType::Offset32_16(_)
+                | OperandType::Offset32_32(_)
+                | OperandType::FarPointer16(_, _)
+                | OperandType::FarPointer32(_, _)
+                | OperandType::M16Pair(_, _)
+        )
+    }
+
     #[inline(always)]
     pub fn is_address(&self) -> bool {
         matches!(
@@ -819,6 +883,15 @@ impl OperandType {
     #[inline(always)]
     pub fn is_register(&self) -> bool {
         matches!(self, OperandType::Register8(_) | OperandType::Register16(_))
+    }
+
+    #[inline(always)]
+    pub fn is_segment_register(&self) -> bool {
+        match self {
+            OperandType::Register16(reg) => reg.is_segment(),
+            OperandType::Register32(reg) => reg.is_segment(),
+            _ => false,
+        }
     }
 }
 

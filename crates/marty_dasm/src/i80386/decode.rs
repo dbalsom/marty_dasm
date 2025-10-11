@@ -279,7 +279,7 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
                 Ok(OperandType::Register32(Register32::from(*r16)))
             }
-            (OperandTemplate::FarPointer, _) => {
+            (OperandTemplate::FarPointer, OperandSize::Operand16) => {
                 let (segment, offset) = bytes.peek_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
@@ -287,6 +287,15 @@ impl OperandTemplate {
                 instruction.immediate_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
                 Ok(OperandType::FarPointer16(segment, offset))
+            }
+            (OperandTemplate::FarPointer, OperandSize::Operand32) => {
+                let (segment, offset) = bytes.read_farptr32()?;
+                instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
+                instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
+
+                instruction.immediate_bytes.extend_from_slice(&offset.to_le_bytes());
+                instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
+                Ok(OperandType::FarPointer32(segment, offset))
             }
             _ => Ok(OperandType::NoOperand),
         }
@@ -487,15 +496,20 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
                 Ok(OperandType::Register32(Register32::from(*r16)))
             }
-            (OperandTemplate::RegisterA16orA32(r16), _) => {
-                let has_override = instruction.has_address_size_override();
-                println!("Address size override: {}", has_override);
-                match instruction.has_address_size_override() {
-                    true => Ok(OperandType::Register32(Register32::from(*r16))),
-                    false => Ok(OperandType::NoOperand),
-                }
+            (OperandTemplate::RegisterA16orA32(r16), _) => match instruction.has_address_size_override() {
+                true => Ok(OperandType::Register32(Register32::from(*r16))),
+                false => Ok(OperandType::NoOperand),
+            },
+            (OperandTemplate::FarPointer, OperandSize::Operand16) => {
+                let (segment, offset) = bytes.peek_farptr16()?;
+                instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
+                instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
+
+                instruction.immediate_bytes.extend_from_slice(&offset.to_le_bytes());
+                instruction.immediate_bytes.extend_from_slice(&segment.to_le_bytes());
+                Ok(OperandType::FarPointer16(segment, offset))
             }
-            (OperandTemplate::FarPointer, _) => {
+            (OperandTemplate::FarPointer, OperandSize::Operand32) => {
                 let (segment, offset) = bytes.read_farptr32()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
@@ -854,8 +868,8 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xE5, o, 0, 0b0000_1000_1101_0011, 0x0ac, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate8);
     inst!( 0xE6, o, 0, 0b0000_1000_1001_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister8(Register8::AL));
     inst!( 0xE7, o, 0, 0b0000_1000_1101_0011, 0x0b0, OUT,     Ot::Immediate8,                         Ot::FixedRegister16or32(Register16::AX));
-    inst!( 0xE8, o, 0, 0b0000_0000_0101_0000, 0x07c, CALL,    Ot::Relative16or32,                     Ot::NoOperand);
-    inst!( 0xE9, o, 0, 0b0000_0000_0101_0000, 0x0d0, JMP,     Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0xE8, o, 0, 0b1000_0000_0101_0000, 0x07c, CALL,    Ot::Relative16or32,                     Ot::NoOperand);
+    inst!( 0xE9, o, 0, 0b1000_0000_0101_0000, 0x0d0, JMP,     Ot::Relative16or32,                     Ot::NoOperand);
     inst!( 0xEA, o, 0, 0b0000_0000_0101_0000, 0x0e0, JMPF,    Ot::FarPointer,                         Ot::NoOperand);
     inst!( 0xEB, o, 0, 0b1000_0000_0101_0000, 0x0d0, JMP,     Ot::Relative8,                          Ot::NoOperand);
     inst!( 0xEC, o, 0, 0b0000_1000_1001_0011, 0x0b4, IN,      Ot::FixedRegister8(Register8::AL),      Ot::FixedRegister16(Register16::DX));
@@ -1092,7 +1106,7 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xFF, o, 0, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::NoOperand,                          Ot::NoOperand);
     // Group 6
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, SLDT,    Ot::ModRM16or32,                        Ot::NoOperand);
-    inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, STR,     Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, STR,     Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, LLDT,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, LTR,     Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, VERR,    Ot::ModRM16,                            Ot::NoOperand);
@@ -1253,6 +1267,8 @@ impl Intel80386 {
 
         let force_reg = op_lu.gdr.is_always_register();
 
+        instruction.raw_prefix_flags = op_prefixes | prefix_candidates;
+
         // Resolve pending prefixes
         if (prefix_candidates & PrefixFlags::OPERAND_SIZE != 0) && op_lu.gdr.can_have_operand_size() {
             // This instruction can be affected by an operand-size override prefix
@@ -1265,7 +1281,7 @@ impl Intel80386 {
             address_size = address_size.with_override();
         }
 
-        instruction.prefix_flags = op_prefixes;
+        instruction.effective_prefix_flags = op_prefixes;
 
         // Prepare to read Mod/RM
         let mut displacement = Displacement::NoDisp;
@@ -1387,25 +1403,38 @@ impl Intel80386 {
             instruction.is_valid = false;
         }
 
+        // Override mnemonics for their wide versions
         instruction.mnemonic = match instruction.operand_size {
             OperandSize::Operand32 => {
-                op_lu.mnemonic.wide_o32()
+                op_lu.mnemonic.native_o32()
             },
             _ => op_lu.mnemonic,
         };
 
         instruction.mnemonic = match instruction.address_size {
-            AddressSize::Address32 => instruction.mnemonic.wide_a32(),
+            AddressSize::Address32 => {
+                instruction.mnemonic.native_a32()
+            },
             _ => instruction.mnemonic,
         };
 
+        // Override mnemonic for operand-size override prefix (overridden NOP becomes XCHG EAX,EAX)
         if instruction.has_operand_size_override() {
-            instruction.mnemonic = instruction.mnemonic.operand_size_override(instruction.operand_size);
+            instruction.mnemonic = match instruction.operand_size {
+                OperandSize::Operand32 => instruction.mnemonic.o32_override(),
+                OperandSize::Operand16 => instruction.mnemonic.o16_override(),
+                _ => instruction.mnemonic,
+            };
+        }
+
+        if instruction.has_address_size_override() {
+            instruction.mnemonic = match instruction.address_size {
+                AddressSize::Address32 => instruction.mnemonic.a32_override(),
+                AddressSize::Address16 => instruction.mnemonic.a16_override(),
+            };
         }
 
         instruction.disambiguate = op_lu.gdr.needs_disambiguation();
-
-
 
         //println!("Operand count: {}", instruction.operand_ct());
         // let operand_ct = instruction.operand_ct();

@@ -34,20 +34,25 @@ use crate::{instruction::Instruction, mnemonic::Mnemonic};
 /// Options controlling disassembly formatting
 #[derive(Copy, Clone, Debug)]
 pub struct FormatOptions {
+    pub ip: u32,
     /// If true, render mnemonic in uppercase; otherwise lowercase.
     pub uppercase_mnemonic: bool,
     /// If true, use iced mnemonics where there are alias differences (ja vs jnbe, etc.)
     pub iced_mnemonics: bool,
     /// If true, only output the mnemonic, no operands
     pub mnemonic_only: bool,
+    /// If true, display operand size for memory operands (eg ```'mov al,[dword ds:5F976B58h]'```)
+    pub memory_operand_size: bool,
 }
 
 impl Default for FormatOptions {
     fn default() -> Self {
         Self {
+            ip: 0,
             uppercase_mnemonic: false,
             iced_mnemonics: false,
             mnemonic_only: false,
+            memory_operand_size: true,
         }
     }
 }
@@ -132,12 +137,9 @@ pub trait Format {
             out.write_separator(" ");
         }
 
-        // prefixes
+        // Prefixes
         self.format_prefixes(inst, opts, out);
 
-        // space between prefixes and mnemonic if prefixes emitted any visible output is left to implementations;
-        // minimal NASM implementation emits no prefixes for now, so we don't add spaces here.
-        // mnemonic
         self.format_mnemonic(inst, opts, out);
 
         if inst.has_operands() && !self.operands_suppressed(inst) {

@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/marty_dasm/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/marty_dasm/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/marty_fuzzer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/marty_isadb/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/crates/marty_dasm/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

@@ -35,7 +35,7 @@ use marty_dasm::prelude::*;
 use rand::{Rng, SeedableRng};
 
 pub const TEST_SEED: u64 = 0x12345678;
-pub const FUZZ_TEST_COUNT: usize = 20_000;
+pub const FUZZ_TEST_COUNT: usize = 10_000;
 pub const MAX_PREFIXES: usize = 2;
 pub const PREFIXES_386: [u8; 11] = [
     0xF0, // LOCK
@@ -55,7 +55,16 @@ pub const PREFIXES_386: [u8; 11] = [
 // space of the 386. Here we try to filter them all out.
 
 #[test]
-fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
+fn fuzz_iced86_without_prefixes() -> Result<(), Box<dyn std::error::Error>> {
+    fuzz_against_iced86(false, FUZZ_TEST_COUNT)
+}
+
+#[test]
+fn fuzz_iced86_with_prefixes() -> Result<(), Box<dyn std::error::Error>> {
+    fuzz_against_iced86(true, FUZZ_TEST_COUNT)
+}
+
+fn fuzz_against_iced86(do_prefixes: bool, test_ct: usize) -> Result<(), Box<dyn std::error::Error>> {
     init_tests();
     let mut rng = rand::rngs::StdRng::seed_from_u64(TEST_SEED);
     let mut error_ct = 0;
@@ -75,17 +84,20 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         allow_undefined: false,
     };
 
-    for run_no in 0..FUZZ_TEST_COUNT {
+    for run_no in 0..test_ct {
         // Get a random instruction for 386
         let instruction = fuzzer.random_instruction(&mut rng, &options)?;
 
         let iced_decoder_opts = iced_x86::DecoderOptions::NO_INVALID_CHECK | iced_x86::DecoderOptions::LOADALL386;
 
         let mut inst_bytes = instruction.bytes.clone();
-        let num_prefixes = rng.random_range(0..=MAX_PREFIXES);
-        for _ in 0..num_prefixes {
-            let prefix = PREFIXES_386[rng.random_range(0..PREFIXES_386.len())];
-            inst_bytes.insert(0, prefix);
+
+        if do_prefixes {
+            let num_prefixes = rng.random_range(0..=MAX_PREFIXES);
+            for _ in 0..num_prefixes {
+                let prefix = PREFIXES_386[rng.random_range(0..PREFIXES_386.len())];
+                inst_bytes.insert(0, prefix);
+            }
         }
 
         let iced_decode_buffer = inst_bytes.clone();
@@ -102,6 +114,10 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
 
         // Decode instruction with iced.
         let mut decoder = iced_x86::Decoder::new(bitness, &iced_decode_buffer, iced_decoder_opts);
+        // Set a random IP so that IP-relative displacements are decoded correctly.
+        let random_ip: u64 = rng.random_range(0..0xFFFF);
+        decoder.set_ip(random_ip);
+
         let iced_i = decoder.decode();
 
         // Get iced string.
@@ -122,7 +138,7 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut marty_decoder = Decoder::new(marty_decode_buffer, marty_decoder_opts);
         let marty_i = marty_decoder.decode_next()?;
-        let marty_str = format_marty_instruction(&marty_i);
+        let marty_str = format_marty_instruction(&marty_i, random_ip as u32);
 
         let iced_display = format!("'{}'", iced_str);
         let marty_display = format!("'{}'", marty_str);
@@ -132,7 +148,7 @@ fn fuzz_against_iced86() -> Result<(), Box<dyn std::error::Error>> {
         }
         else if iced_str != marty_str {
             eprintln!(
-                "Discrepancy found on run {:06}: {:<10?} {:<10?} {:<10?} iced: {:<40} marty: {:<40} op_ct: {} c: {:<5} d: {:<5} opcode: {:02} bytes: {:X?}",
+                "Discrepancy found on run {:06}: {:<10?} {:<10?} {:<10?} iced: {:<40} marty: {:<40} op_ct: {} c: {:<5} d: {:<5} opcode: [{}] bytes: {:X?}",
                 run_no,
                 segment_size,
                 marty_i.operand_size,

@@ -50,6 +50,8 @@ pub enum Mnemonic {
     INT3,
     INTO,
     IRET,
+    IRETW,
+    IRETD,
     JB,
     JBE,
     JCXZ,
@@ -96,12 +98,16 @@ pub enum Mnemonic {
     POPFD,
     PUSH,
     PUSHF,
+    PUSHFW,
+    PUSHFD,
     RCL,
     RCR,
     REP,
     REPNE,
     REPE,
     RETF,
+    RETFW,
+    RETFD,
     RET,
     RETW,
     RETD,
@@ -252,6 +258,8 @@ pub(crate) fn mnemonic_to_str(op: Mnemonic) -> &'static str {
         INT3 => "INT3",
         INTO => "INTO",
         IRET => "IRET",
+        IRETW => "IRETW",
+        IRETD => "IRETD",
         JB => "JB",
         JBE => "JBE",
         JCXZ => "JCXZ",
@@ -298,12 +306,16 @@ pub(crate) fn mnemonic_to_str(op: Mnemonic) -> &'static str {
         POPFD => "POPFD",
         PUSH => "PUSH",
         PUSHF => "PUSHF",
+        PUSHFW => "PUSHFW",
+        PUSHFD => "PUSHFD",
         RCL => "RCL",
         RCR => "RCR",
         REP => "REP",
         REPNE => "REPNE",
         REPE => "REPE",
         RETF => "RETF",
+        RETFW => "RETFW",
+        RETFD => "RETFD",
         RET => "RET",
         RETW => "RETW",
         RETD => "RETD",
@@ -495,6 +507,28 @@ impl Mnemonic {
         }
     }
 
+    pub fn is_jcnd(&self) -> bool {
+        match self {
+            Mnemonic::JO
+            | Mnemonic::JNO
+            | Mnemonic::JB
+            | Mnemonic::JNB
+            | Mnemonic::JZ
+            | Mnemonic::JNZ
+            | Mnemonic::JBE
+            | Mnemonic::JNBE
+            | Mnemonic::JS
+            | Mnemonic::JNS
+            | Mnemonic::JP
+            | Mnemonic::JNP
+            | Mnemonic::JL
+            | Mnemonic::JNL
+            | Mnemonic::JLE
+            | Mnemonic::JNLE => true,
+            _ => false,
+        }
+    }
+
     pub fn is_far(&self) -> bool {
         match self {
             Mnemonic::JMPF | Mnemonic::CALLF => true,
@@ -510,7 +544,7 @@ impl Mnemonic {
     }
 
     /// Convert a word-sized mnemonic to its dword equivalent.
-    pub fn wide_o32(&self) -> Mnemonic {
+    pub fn native_o32(&self) -> Mnemonic {
         match self {
             Mnemonic::CBW => Mnemonic::CWDE,
             Mnemonic::CWD => Mnemonic::CDQ,
@@ -521,31 +555,71 @@ impl Mnemonic {
             Mnemonic::CMPSW => Mnemonic::CMPSD,
             Mnemonic::INSW => Mnemonic::INSD,
             Mnemonic::OUTSW => Mnemonic::OUTSD,
+            _ => *self,
+        }
+    }
+
+    pub fn native_a32(&self) -> Mnemonic {
+        match self {
             Mnemonic::JCXZ => Mnemonic::JECXZ,
             _ => *self,
         }
     }
 
-    pub fn wide_a32(&self) -> Mnemonic {
+    pub fn a16_override(&self) -> Mnemonic {
+        match self {
+            Mnemonic::JECXZ => Mnemonic::JCXZ,
+            _ => *self,
+        }
+    }
+
+    pub fn a32_override(&self) -> Mnemonic {
+        match self {
+            Mnemonic::JCXZ => Mnemonic::JECXZ,
+            _ => *self,
+        }
+    }
+
+    pub fn o32_override(&self) -> Mnemonic {
         match self {
             Mnemonic::NOP => Mnemonic::XCHG,
-            Mnemonic::JCXZ => Mnemonic::JECXZ,
-            //Mnemonic::RET => Mnemonic::RETW,
+            Mnemonic::IRET => Mnemonic::IRETD,
+            Mnemonic::RET => Mnemonic::RETD,
+            Mnemonic::PUSHF => Mnemonic::PUSHFD,
+            Mnemonic::PUSHA => Mnemonic::PUSHAD,
+            Mnemonic::POPF => Mnemonic::POPFD,
+            //Mnemonic::JCXZ => Mnemonic::JECXZ,
             _ => *self,
         }
     }
 
-    pub fn operand_size_override(&self, op_size: OperandSize) -> Mnemonic {
-        match (self, op_size) {
-            (Mnemonic::RET, OperandSize::Operand16) => Mnemonic::RETW,
-            (Mnemonic::RET, OperandSize::Operand32) => Mnemonic::RETD,
-            (Mnemonic::PUSHA, OperandSize::Operand16) => Mnemonic::PUSHAW,
-            (Mnemonic::PUSHA, OperandSize::Operand32) => Mnemonic::PUSHAD,
-            (Mnemonic::POPA, OperandSize::Operand16) => Mnemonic::POPAW,
-            (Mnemonic::POPA, OperandSize::Operand32) => Mnemonic::POPAD,
-            (Mnemonic::POPF, OperandSize::Operand16) => Mnemonic::POPFW,
-            (Mnemonic::POPF, OperandSize::Operand32) => Mnemonic::POPFD,
+    pub fn o16_override(&self) -> Mnemonic {
+        match self {
+            Mnemonic::NOP => Mnemonic::XCHG,
+            Mnemonic::PUSHF => Mnemonic::PUSHFW,
+            Mnemonic::PUSHA => Mnemonic::PUSHAW,
+            Mnemonic::IRET => Mnemonic::IRETW,
+            Mnemonic::RET => Mnemonic::RETW,
+            Mnemonic::RETF => Mnemonic::RETFW,
+            Mnemonic::POPF => Mnemonic::POPFW,
+            Mnemonic::JECXZ => Mnemonic::JCXZ,
             _ => *self,
+        }
+    }
+
+    pub fn needs_operand_size_override_prefix(&self) -> bool {
+        match self {
+            Mnemonic::STR
+            | Mnemonic::LIDT
+            | Mnemonic::SIDT
+            | Mnemonic::SLDT
+            | Mnemonic::LLDT
+            | Mnemonic::LMSW
+            | Mnemonic::VERR
+            | Mnemonic::VERW
+            | Mnemonic::JCXZ
+            | Mnemonic::POP => true,
+            _ => false,
         }
     }
 
@@ -578,7 +652,17 @@ impl Mnemonic {
         use Mnemonic::*;
         match self {
             PUSH | LOCK | POP | JO | JNO | JB | JNB | JZ | JNZ | JBE | JNBE | JS | JNS | JP | JNP | JL | JNL | JLE
-            | JNLE | ENTER | LEAVE | LOOPNE | LOOPE | LOOP | JCXZ | JECXZ | JMP | LMSW | LIDT => true,
+            | JNLE | ENTER | LEAVE | LOOPNE | LOOPE | LOOP | JCXZ | JECXZ | JMP | LMSW | LIDT | STR | LIDT | SIDT
+            | SLDT | LLDT | LMSW | VERR | VERW | JCXZ | POP => true,
+            _ => false,
+        }
+    }
+
+    pub fn suppress_operand_prefix(&self) -> bool {
+        use Mnemonic::*;
+        match self {
+            SETO | SETNO | SETB | SETNB | SETZ | SETNZ | SETBE | SETNBE | SETS | SETNS | SETP | SETNP | SETL
+            | SETNL | SETLE | SETNLE => true,
             _ => false,
         }
     }
