@@ -303,7 +303,9 @@ impl NasmFormatter {
             OperandType::Offset8_32(_)
             | OperandType::Offset8_16(_)
             | OperandType::Offset16_16(_)
-            | OperandType::Offset32_16(_) => true,
+            | OperandType::Offset32_16(_)
+            | OperandType::Offset16_32(_)
+            | OperandType::Offset32_32(_) => true,
             _ => false,
         }
     }
