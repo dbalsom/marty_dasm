@@ -341,11 +341,16 @@ impl NasmFormatter {
         let mut flip = false;
 
         if inst.mnemonic.is_push_or_pop() && inst.has_operand_size_override() {
-            // Only a 16-bit push/pop can be ambiguous
-            disambiguate = inst.operand1_type.is_segment_register();
+            // Size-ambiguous push/pop may be segment register, or imm8 operand
+            disambiguate = inst.operand1_type.is_segment_register()
+                | matches!(
+                    inst.operand1_type,
+                    OperandType::Immediate8(_) | OperandType::Immediate8s(_)
+                );
         }
-        else if inst.mnemonic.is_jcnd() && inst.has_operand_size_override() {
-            disambiguate = matches!(inst.operand1_type, OperandType::Relative8(_));
+        else if matches!(inst.operand1_type, OperandType::Relative8(_)) && inst.has_operand_size_override() {
+            // Handle Jcc, LOOPNE, LOOPE, LOOP, JCXZ wanting disambiguation of rel8 operand.
+            disambiguate = true;
         }
         else if !inst.mnemonic.suppress_operand_prefix()
             && inst.has_ineffective_operand_size_override()
@@ -356,23 +361,6 @@ impl NasmFormatter {
             //println!("Has ineffective operand size override");
             disambiguate = true;
             flip = true;
-        }
-
-        if inst.has_address_size_override() && inst.mnemonic.disambiguate_operand_size() {
-            if inst.mnemonic.is_push_or_pop() {
-                if let OperandType::Register16(reg) = inst.operand1_type {
-                    if reg.is_segment_reg() {
-                        disambiguate = true;
-                    }
-                }
-            }
-            else {
-                disambiguate = match inst.operand1_type {
-                    OperandType::NoOperand => true,
-                    OperandType::Relative8(_) => true,
-                    _ => false,
-                }
-            }
         }
 
         if disambiguate {
