@@ -44,6 +44,8 @@ use crate::{
         OperandType,
         OperandType::AddressingMode16,
         PrefixFlags,
+        REGISTER8_LUT,
+        REGISTER16_LUT,
         Register8,
         Register16,
     },
@@ -113,6 +115,7 @@ impl OperandTemplate {
         modrm: &Option<ModRmByte16>,
         displacement: Displacement,
         instruction: &mut Instruction,
+        opcode: u8,
     ) -> io::Result<OperandType> {
         match self {
             OperandTemplate::ModRM8 => {
@@ -132,6 +135,8 @@ impl OperandTemplate {
             OperandTemplate::Register8 => Ok(OperandType::Register8(modrm.unwrap().op2_reg8())),
             OperandTemplate::Register16 => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
             OperandTemplate::SegmentRegister => Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16())),
+            OperandTemplate::Register8Encoded => Ok(OperandType::Register8(REGISTER8_LUT[(opcode & 0x07) as usize])),
+            OperandTemplate::Register16Encoded => Ok(OperandType::Register16(REGISTER16_LUT[(opcode & 0x07) as usize])),
             OperandTemplate::Immediate8 => {
                 let operand = bytes.peek_u8()?;
                 instruction.instruction_bytes.push(operand);
@@ -383,7 +388,7 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0x66, o, 0, 0b0000000000000000, 0x0e8, FPO2,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x67, o, 0, 0b0000000000000000, 0x0e8, FPO2,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x68, o, 0, 0b0000000000010000, 0x0e8, PUSH,    Ot::Immediate16,                        Ot::NoOperand);
-    inst!( 0x69, o, 0, 0b0000000000010000, 0x0e8, IMUL,    Ot::Register16,                         Ot::ModRM16, Ot::Immediate16);
+    inst!( 0x69, o, 0, 0b0000000000000000, 0x0e8, IMUL,    Ot::Register16,                         Ot::ModRM16, Ot::Immediate16);
     inst!( 0x6A, o, 0, 0b0000000000010000, 0x0e8, PUSH,    Ot::Immediate8,                         Ot::NoOperand);
     inst!( 0x6B, o, 0, 0b0000000000000000, 0x0e8, IMUL,    Ot::Register16,                         Ot::ModRM16, Ot::Immediate8SignExtended);
     inst!( 0x6C, o, 0, 0b0000000000010000, 0x0e8, INSB,    Ot::NoOperand,                          Ot::NoOperand);
@@ -472,8 +477,8 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xBF, o, 0, 0b0100000000110010, 0x01c, MOV,     Ot::Register16Encoded,                  Ot::Immediate16);
     inst!( 0xC0, o, 5, 0b0100000000110000, 0x0cc, Group,   Ot::Immediate16,                        Ot::NoOperand);
     inst!( 0xC1, o, 6, 0b0100000000110000, 0x0bc, Group,   Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0xC2, o, 0, 0b0100000000110000, 0x0cc, RET,    Ot::Immediate16,                        Ot::NoOperand);
-    inst!( 0xC3, o, 0, 0b0100000000110000, 0x0bc, RET,    Ot::NoOperand,                          Ot::NoOperand);
+    inst!( 0xC2, o, 0, 0b0100000000110000, 0x0cc, RET,     Ot::Immediate16,                        Ot::NoOperand);
+    inst!( 0xC3, o, 0, 0b0100000000110000, 0x0bc, RET,     Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xC4, o, 0, 0b0100000000100000, 0x0f0, LES,     Ot::Register16,                         Ot::ModRM16);
     inst!( 0xC5, o, 0, 0b0100000000100000, 0x0f4, LDS,     Ot::Register16,                         Ot::ModRM16);
     inst!( 0xC6, o, 0, 0b0100100000100010, 0x014, MOV,     Ot::ModRM8,                             Ot::Immediate8);
@@ -706,7 +711,10 @@ impl NecVx0 {
     #[rustfmt::skip]
     pub fn decode(bytes: &mut impl ByteReader) -> Result<Instruction, DecodeError> {
 
-        let mut instruction = Instruction::default();
+        let mut instruction = Instruction {
+            is_valid: true,
+            ..Instruction::default()
+        };
 
         // Read an initial byte as our opcode or first prefix
         let mut opcode = match bytes.read_u8() {
@@ -810,11 +818,12 @@ impl NecVx0 {
             None
         };
 
-        instruction.operand1_type = op_lu.operand1.resolve_operand(bytes, &modrm, displacement, &mut instruction)?;
-        instruction.operand2_type = op_lu.operand2.resolve_operand(bytes, &modrm, displacement, &mut instruction)?;
-        instruction.operand3_type = op_lu.operand3.resolve_operand(bytes, &modrm, displacement, &mut instruction)?;
+        instruction.operand1_type = op_lu.operand1.resolve_operand(bytes, &modrm, displacement, &mut instruction, opcode)?;
+        instruction.operand2_type = op_lu.operand2.resolve_operand(bytes, &modrm, displacement, &mut instruction, opcode)?;
+        instruction.operand3_type = op_lu.operand3.resolve_operand(bytes, &modrm, displacement, &mut instruction, opcode)?;
 
         // Set mnemonic from decode table
+        instruction.is_complete = true;
         instruction.mnemonic = op_lu.mnemonic;
 
         Ok(instruction)
