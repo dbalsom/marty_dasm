@@ -53,11 +53,11 @@ pub fn format_iced_instruction(iced_i: &iced_x86::Instruction) -> String {
 
 pub fn format_marty_instruction(marty_i: &Instruction, ip: u32) -> String {
     let mut output = String::new();
-    let mut options = FormatOptions {
+    let options = FormatOptions {
         ip,
+        iced_mnemonics: true,
         ..FormatOptions::default()
     };
-    options.iced_mnemonics = true;
 
     NasmFormatter.format_instruction(&marty_i, &options, &mut output);
 
