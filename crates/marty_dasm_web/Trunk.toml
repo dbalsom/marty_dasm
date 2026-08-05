@@ -1,0 +1,17 @@
+[build]
+target = "www/index.html"
+dist = "www/dist"
+
+[serve]
+port = 8080
+open = false
+no_autoreload = false
+
+[watch]
+watch = [
+    "Cargo.toml",
+    "src",
+    "templates",
+    "www",
+    "../marty_dasm/src",
+]

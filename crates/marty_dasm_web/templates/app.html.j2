@@ -1,0 +1,118 @@
+{# Rendered by MiniJinja at WASM startup. #}
+<header class="page-header">
+  <div class="title-group">
+    <img class="title-icon" src="cow.png" width="280" height="304" alt="" aria-hidden="true">
+    <div class="title-stack">
+      <div class="title-text">
+        <h1>{{ title }}</h1>
+        <p class="subtitle">by <a href="https://github.com/dbalsom" target="_blank" rel="noopener noreferrer">GloriousCow</a></p>
+      </div>
+      <p id="random-byline" class="random-byline"></p>
+    </div>
+  </div>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch color theme">
+    <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.2 15.3A8.5 8.5 0 0 1 8.7 3.8 8.5 8.5 0 1 0 20.2 15.3Z"/>
+    </svg>
+    <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+    </svg>
+  </button>
+</header>
+
+<main class="shell">
+  <div id="banner-container" class="banner-container">
+    <aside id="panic-banner" class="panic-banner" role="alert" hidden>
+      <strong>The disassembler encountered an unexpected internal error.</strong>
+      <span id="panic-report-prompt" hidden>
+        Please <a id="panic-issue-link" target="_blank" rel="noopener noreferrer">open an issue</a>.
+        The report link includes the current disassembly URL.
+      </span>
+    </aside>
+
+    <aside id="url-warning" class="url-warning" role="status" aria-live="polite" hidden>
+      This share link is longer than 2,000 characters and may not work in all browsers or services.
+    </aside>
+
+    <aside id="fpu-warning" class="cpu-warning" role="status" hidden>
+      80386 mode currently lacks support for FPU instructions.
+    </aside>
+  </div>
+
+  <section class="controls" aria-label="Disassembler controls">
+    <div class="control-column">
+      <div class="control">
+        <label for="cpu-select">Processor</label>
+        <select id="cpu-select">
+          {% for cpu in cpus %}<option value="{{ cpu.value }}">{{ cpu.label }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="segment-size-select">Code segment default</label>
+        <select id="segment-size-select">
+          <option value="16">16-bit</option>
+          <option id="segment-size-32" value="32" hidden disabled>32-bit</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="offset-input">Base Address</label>
+        <input id="offset-input" class="offset-input" type="text" value="00000000" maxlength="8" pattern="[0-9A-Fa-f]{0,8}" inputmode="text" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="control-column">
+      <div class="control">
+        <label for="hex-input">Machine code</label>
+        <textarea id="hex-input" autocomplete="off" spellcheck="false" autofocus>{{ sample_bytes }}</textarea>
+        <div class="input-help">
+          <p class="hint">Enter hex bytes. Bytes may be contiguous, or separated by spaces, commas, or semicolons. <code>0x</code> prefixes are also accepted.</p>
+          <button id="clear-input" class="clear-input" type="button">Clear</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="results" aria-labelledby="results-title">
+    <div class="results-header">
+      <h2 id="results-title">Disassembly</h2>
+      <span id="status" class="status" aria-live="polite">Waiting for input</span>
+    </div>
+    <div class="results-toolbar" aria-label="Disassembly actions">
+      <span class="copy-controls">
+        <span class="copy-label">Copy:</span>
+        <label><input id="copy-offsets" type="checkbox" checked> offsets</label>
+        <label><input id="copy-bytes" type="checkbox" checked> bytes</label>
+        <button id="copy-disassembly" class="copy-button" type="button">Copy</button>
+      </span>
+    </div>
+    <table>
+      <caption>Disassembled x86 machine code</caption>
+      <colgroup>
+        <col class="offset-column">
+        <col class="bytes-column">
+        <col class="instruction-column">
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col">Offset</th>
+          <th scope="col">Bytes</th>
+          <th scope="col">Instruction</th>
+        </tr>
+      </thead>
+      <tbody id="disassembly-output" aria-live="polite"></tbody>
+    </table>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <span>v{{ web_version }}</span>
+  <span class="footer-separator" aria-hidden="true">&bull;</span>
+  <span class="powered-by">Powered by <a href="https://github.com/dbalsom/marty_dasm/blob/main/crates/marty_dasm_web/README.md">marty_dasm</a> v{{ dasm_version }}</span>
+  <span class="footer-separator" aria-hidden="true">&bull;</span>
+  <span><a href="https://martypc.net">Try MartyPC!</a></span>
+  <span class="footer-separator" aria-hidden="true">&bull;</span>
+  <span><a href="https://github.com/dbalsom">Hire me!</a></span>
+</footer>

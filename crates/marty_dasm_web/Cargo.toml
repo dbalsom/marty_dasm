@@ -1,0 +1,46 @@
+[package]
+name = "marty_dasm_web"
+version = "1.0.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A WebAssembly interface for the marty_dasm retro x86 disassembler"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+base64 = "0.22"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+marty_dasm = { path = "../marty_dasm" }
+minijinja = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = [
+    "Clipboard",
+    "CssStyleDeclaration",
+    "Crypto",
+    "Document",
+    "Element",
+    "Event",
+    "EventTarget",
+    "HtmlElement",
+    "HtmlInputElement",
+    "HtmlOptionElement",
+    "HtmlSelectElement",
+    "HtmlTextAreaElement",
+    "History",
+    "Location",
+    "MediaQueryList",
+    "Node",
+    "Navigator",
+    "ResizeObserver",
+    "Storage",
+    "UrlSearchParams",
+    "Window",
+] }
