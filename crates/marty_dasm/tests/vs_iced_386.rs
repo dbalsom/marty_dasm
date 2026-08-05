@@ -35,7 +35,7 @@ use marty_dasm::prelude::*;
 use rand::{Rng, SeedableRng};
 
 pub const TEST_SEED: u64 = 0x12345678;
-pub const FUZZ_TEST_COUNT: usize = 10_000;
+pub const FUZZ_TEST_COUNT: usize = 100_000;
 pub const MAX_PREFIXES: usize = 2;
 pub const PREFIXES_386: [u8; 11] = [
     0xF0, // LOCK
@@ -62,6 +62,172 @@ fn fuzz_iced86_without_prefixes() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn fuzz_iced86_with_prefixes() -> Result<(), Box<dyn std::error::Error>> {
     fuzz_against_iced86(true, FUZZ_TEST_COUNT)
+}
+
+#[test]
+fn compare_smsw_sldt() -> Result<(), Box<dyn std::error::Error>> {
+    const HEX: &str = "660F01E00F01E0660F00C00F00C0660F01200F0120660F00000F0000";
+
+    let bytes = HEX
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII hex pair"), 16).expect("valid hex pair"))
+        .collect::<Vec<_>>();
+
+    let mut iced_output = Vec::new();
+    let mut marty_output = Vec::new();
+
+    for (bitness, segment_size) in [(16, SegmentSize::Segment16), (32, SegmentSize::Segment32)] {
+        iced_output.push(format!("{bitness}-bit segment"));
+        marty_output.push(format!("{bitness}-bit segment"));
+
+        let iced_options = iced_x86::DecoderOptions::NO_INVALID_CHECK | iced_x86::DecoderOptions::LOADALL386;
+        let mut iced_decoder = iced_x86::Decoder::new(bitness, &bytes, iced_options);
+        while iced_decoder.can_decode() {
+            let instruction = iced_decoder.decode();
+            let mut text = format_iced_instruction(&instruction);
+            if !is_valid_mnemonic(instruction.mnemonic()) {
+                text = "(bad)".to_owned();
+            }
+            iced_output.push(format!("{:04X}: {text}", instruction.ip()));
+        }
+
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let mut decoder = Decoder::new(
+                Cursor::new(&bytes[offset..]),
+                DecoderOptions {
+                    cpu: CpuType::Intel80386,
+                    segment_size,
+                },
+            );
+            let instruction = decoder.decode_next()?;
+            let instruction_length = instruction.instruction_bytes.len();
+            if instruction_length == 0 {
+                return Err(format!("marty_dasm made no progress at offset {offset:04X}").into());
+            }
+            marty_output.push(format!(
+                "{offset:04X}: {}",
+                format_marty_instruction(&instruction, offset as u32)
+            ));
+            offset += instruction_length;
+        }
+    }
+
+    assert_eq!(iced_output, marty_output);
+    Ok(())
+}
+
+#[test]
+fn compare_pushes() -> Result<(), Box<dyn std::error::Error>> {
+    const HEX: &str = "6066606166619C669C9D669D";
+
+    let bytes = HEX
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII hex pair"), 16).expect("valid hex pair"))
+        .collect::<Vec<_>>();
+
+    let mut iced_output = Vec::new();
+    let mut marty_output = Vec::new();
+
+    for (bitness, segment_size) in [(16, SegmentSize::Segment16), (32, SegmentSize::Segment32)] {
+        iced_output.push(format!("{bitness}-bit segment"));
+        marty_output.push(format!("{bitness}-bit segment"));
+
+        let iced_options = iced_x86::DecoderOptions::NO_INVALID_CHECK | iced_x86::DecoderOptions::LOADALL386;
+        let mut iced_decoder = iced_x86::Decoder::new(bitness, &bytes, iced_options);
+        while iced_decoder.can_decode() {
+            let instruction = iced_decoder.decode();
+            let mut text = format_iced_instruction(&instruction);
+            if !is_valid_mnemonic(instruction.mnemonic()) {
+                text = "(bad)".to_owned();
+            }
+            iced_output.push(format!("{:04X}: {text}", instruction.ip()));
+        }
+
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let mut decoder = Decoder::new(
+                Cursor::new(&bytes[offset..]),
+                DecoderOptions {
+                    cpu: CpuType::Intel80386,
+                    segment_size,
+                },
+            );
+            let instruction = decoder.decode_next()?;
+            let instruction_length = instruction.instruction_bytes.len();
+            if instruction_length == 0 {
+                return Err(format!("marty_dasm made no progress at offset {offset:04X}").into());
+            }
+            marty_output.push(format!(
+                "{offset:04X}: {}",
+                format_marty_instruction(&instruction, offset as u32)
+            ));
+            offset += instruction_length;
+        }
+    }
+
+    println!("iced: {iced_output:#?}");
+    println!("marty_dasm: {marty_output:#?}");
+    assert_eq!(iced_output, marty_output);
+    Ok(())
+}
+
+#[test]
+fn test_lar_lsl() -> Result<(), Box<dyn std::error::Error>> {
+    const HEX: &str = "0F02C1660F02C10F0207660F0207670F020066670F02000F03C1660F03C10F0307660F0307670F030066670F0300";
+
+    let bytes = HEX
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII hex pair"), 16).expect("valid hex pair"))
+        .collect::<Vec<_>>();
+
+    let mut iced_output = Vec::new();
+    let mut marty_output = Vec::new();
+
+    for (bitness, segment_size) in [(16, SegmentSize::Segment16), (32, SegmentSize::Segment32)] {
+        iced_output.push(format!("{bitness}-bit segment"));
+        marty_output.push(format!("{bitness}-bit segment"));
+
+        let iced_options = iced_x86::DecoderOptions::NO_INVALID_CHECK | iced_x86::DecoderOptions::LOADALL386;
+        let mut iced_decoder = iced_x86::Decoder::new(bitness, &bytes, iced_options);
+        while iced_decoder.can_decode() {
+            let instruction = iced_decoder.decode();
+            let mut text = format_iced_instruction(&instruction);
+            if !is_valid_mnemonic(instruction.mnemonic()) {
+                text = "(bad)".to_owned();
+            }
+            iced_output.push(format!("{:04X}: {text}", instruction.ip()));
+        }
+
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let mut decoder = Decoder::new(
+                Cursor::new(&bytes[offset..]),
+                DecoderOptions {
+                    cpu: CpuType::Intel80386,
+                    segment_size,
+                },
+            );
+            let instruction = decoder.decode_next()?;
+            let instruction_length = instruction.instruction_bytes.len();
+            if instruction_length == 0 {
+                return Err(format!("marty_dasm made no progress at offset {offset:04X}").into());
+            }
+            marty_output.push(format!(
+                "{offset:04X}: {}",
+                format_marty_instruction(&instruction, offset as u32)
+            ));
+            offset += instruction_length;
+        }
+    }
+
+    println!("iced: {iced_output:#?}");
+    println!("marty_dasm: {marty_output:#?}");
+    assert_eq!(iced_output, marty_output);
+    Ok(())
 }
 
 fn fuzz_against_iced86(do_prefixes: bool, test_ct: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -142,9 +308,25 @@ fn fuzz_against_iced86(do_prefixes: bool, test_ct: usize) -> Result<(), Box<dyn 
 
         let iced_display = format!("'{}'", iced_str);
         let marty_display = format!("'{}'", marty_str);
+        let marty_mnemonic = marty_i.mnemonic.to_string();
+        let has_rep_prefix = marty_i
+            .instruction_bytes
+            .iter()
+            .take_while(|&&byte| byte != 0x0F)
+            .any(|&byte| matches!(byte, 0xF2 | 0xF3));
+        let ignored_rep_bsf_bsr =
+            iced_str == "(bad)" && matches!(marty_mnemonic.as_str(), "BSF" | "BSR") && has_rep_prefix;
+        let ignored_pause_as_rep_nop = iced_i.mnemonic() == iced_x86::Mnemonic::Pause && marty_mnemonic == "NOP";
 
         if iced_str == "(bad)" && (marty_str.contains("(bad)") == true) {
             // Both decoders agree it's a bad instruction, all good.
+        }
+        else if ignored_rep_bsf_bsr {
+            // The 80386 ignores REP prefixes on BSF and BSR. Iced interprets these byte sequences
+            // using later instruction-set extensions, which this comparison intentionally rejects.
+        }
+        else if ignored_pause_as_rep_nop {
+            // Iced decodes F3 90 as the later PAUSE instruction. On the 80386, it is REP NOP.
         }
         else if iced_str != marty_str {
             eprintln!(

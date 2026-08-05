@@ -38,6 +38,8 @@ use crate::{
         Register32,
         SREGISTER16_LUT,
         SREGISTER16_LUT_386,
+        TREGISTER_LUT,
+        TestRegister,
     },
 };
 
@@ -288,6 +290,11 @@ impl ModRmByte16 {
     #[inline(always)]
     pub fn op2_reg_dbg(self) -> DebugRegister {
         DREGISTER_LUT[self.b_reg as usize]
+    }
+
+    #[inline(always)]
+    pub fn op2_reg_test(self) -> TestRegister {
+        TREGISTER_LUT[self.b_reg as usize]
     }
 
     // Interpret the 'REG' field as a 3 bit opcode extension

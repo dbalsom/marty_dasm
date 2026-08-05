@@ -23,10 +23,10 @@
 */
 
 use crate::{
-    Opcode,
-    SegmentSize,
     cpu_common::{AddressSize, OperandSize, OperandType, PrefixFlags, Register16},
     mnemonic::Mnemonic,
+    Opcode,
+    SegmentSize,
 };
 
 #[derive(Clone, Debug)]
@@ -91,7 +91,7 @@ impl Default for Instruction {
             segment_size: SegmentSize::Segment16,
             operand_size: OperandSize::NoOperand,
             address_size: AddressSize::Address16,
-            mnemonic: Mnemonic::NOP,
+            mnemonic: Mnemonic::default(),
             segment_override: None,
             disambiguate: false,
             hide_operands: false,

@@ -170,6 +170,17 @@ pub const DREGISTER_LUT: [DebugRegister; 8] = [
     DebugRegister::DR7,
 ];
 
+pub const TREGISTER_LUT: [TestRegister; 8] = [
+    TestRegister::InvalidRegister,
+    TestRegister::InvalidRegister,
+    TestRegister::InvalidRegister,
+    TestRegister::InvalidRegister,
+    TestRegister::TR4,
+    TestRegister::TR5,
+    TestRegister::TR6,
+    TestRegister::TR7,
+];
+
 impl Register16 {
     #[inline]
     pub fn is_segment(&self) -> bool {
@@ -228,6 +239,27 @@ impl Display for DebugRegister {
             DebugRegister::DR6 => write!(f, "dr6"),
             DebugRegister::DR7 => write!(f, "dr7"),
             DebugRegister::InvalidRegister => write!(f, "invalid"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TestRegister {
+    TR4,
+    TR5,
+    TR6,
+    TR7,
+    InvalidRegister,
+}
+
+impl Display for TestRegister {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TestRegister::TR4 => write!(f, "tr4"),
+            TestRegister::TR5 => write!(f, "tr5"),
+            TestRegister::TR6 => write!(f, "tr6"),
+            TestRegister::TR7 => write!(f, "tr7"),
+            TestRegister::InvalidRegister => write!(f, "invalid"),
         }
     }
 }
@@ -819,6 +851,7 @@ pub enum OperandType {
     Register32(Register32),
     ControlRegister(ControlRegister),
     DebugRegister(DebugRegister),
+    TestRegister(TestRegister),
     AddressingMode16(AddressOffset16, OperandSize),
     AddressingMode32(AddressOffset32, OperandSize),
     FarPointer16(u16, u16),
@@ -849,6 +882,7 @@ impl OperandType {
             OperandType::Register32(_) => OperandSize::Operand32,
             OperandType::ControlRegister(_) => OperandSize::Operand32,
             OperandType::DebugRegister(_) => OperandSize::Operand32,
+            OperandType::TestRegister(_) => OperandSize::Operand32,
             OperandType::AddressingMode16(_, size) => *size,
             OperandType::AddressingMode32(_, size) => *size,
             _ => OperandSize::NoOperand,

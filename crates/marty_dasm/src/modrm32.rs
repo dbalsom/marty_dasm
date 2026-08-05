@@ -39,6 +39,8 @@ use crate::{
         SREGISTER16_LUT,
         SREGISTER16_LUT_386,
         SREGISTER32_LUT,
+        TREGISTER_LUT,
+        TestRegister,
     },
     sib::SibByte,
 };
@@ -326,6 +328,11 @@ impl ModRmByte32 {
     #[inline(always)]
     pub fn op2_reg_dbg(self) -> DebugRegister {
         DREGISTER_LUT[self.b_reg as usize]
+    }
+
+    #[inline(always)]
+    pub fn op2_reg_test(self) -> TestRegister {
+        TREGISTER_LUT[self.b_reg as usize]
     }
     // Interpret the 'REG' field as a 32 bit segment register selector
     #[inline(always)]

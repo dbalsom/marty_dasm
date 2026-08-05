@@ -22,7 +22,6 @@
     DEALINGS IN THE SOFTWARE.
 */
 use crate::{
-    SegmentSize,
     cpu_common::{
         AddressOffset16,
         AddressOffset32,
@@ -38,6 +37,7 @@ use crate::{
     formatter::{Format, FormatOptions, FormatterOutput},
     instruction::Instruction,
     mnemonic::Mnemonic,
+    SegmentSize,
 };
 use num_traits::PrimInt;
 use std::fmt::Display;
@@ -229,7 +229,12 @@ pub fn format_signed_hex_or_decimal<T: UnsignedAbsU32>(value: T) -> String {
     else {
         // hex from the *unsigned* magnitude
         let s = format!("{:X}", mag);
-        if neg { format!("-{s}h") } else { format!("+{s}h") }
+        if neg {
+            format!("-{s}h")
+        }
+        else {
+            format!("+{s}h")
+        }
     }
 }
 
@@ -350,9 +355,42 @@ impl NasmFormatter {
                     OperandType::Immediate8(_) | OperandType::Immediate8s(_)
                 );
         }
+        else if inst.has_operand_size_override() && matches!(inst.mnemonic, Mnemonic::ENTER | Mnemonic::LEAVE) {
+            // ENTER's immediate operands and LEAVE's lack of operands do not expose the selected
+            // stack width. Preserve the prefix with explicit o16/o32 notation.
+            disambiguate = true;
+        }
         else if matches!(inst.operand1_type, OperandType::Relative8(_)) && inst.has_operand_size_override() {
             // Handle Jcc, LOOPNE, LOOPE, LOOP, JCXZ wanting disambiguation of rel8 operand.
             disambiguate = true;
+        }
+        else if inst.has_operand_size_override()
+            && matches!(inst.mnemonic, Mnemonic::SLDT | Mnemonic::SMSW)
+            && inst.has_memory_operand()
+        {
+            // SLDT and SMSW select AX/EAX for register operands, but their memory operands remain
+            // word-sized. Preserve the otherwise invisible prefix with an explicit o16/o32.
+            disambiguate = true;
+        }
+        else if inst.has_operand_size_override()
+            && inst.mnemonic == Mnemonic::MOV
+            && inst.has_memory_operand()
+            && (inst.operand1_type.is_segment_register() || inst.operand2_type.is_segment_register())
+        {
+            // Segment-register MOVs always use a word-sized memory operand, so neither operand
+            // makes an effective operand-size prefix visible. Preserve it with o16/o32.
+            disambiguate = true;
+        }
+        else if inst.has_ineffective_operand_size_override()
+            && matches!(
+                inst.mnemonic,
+                Mnemonic::LMSW | Mnemonic::LLDT | Mnemonic::LTR | Mnemonic::VERR | Mnemonic::VERW
+            )
+        {
+            // Fixed-width system instructions ignore the operand-size prefix, but NASM needs an
+            // explicit o16/o32 to preserve it in the encoded byte stream.
+            disambiguate = true;
+            flip = true;
         }
         else if !inst.mnemonic.suppress_operand_prefix()
             && inst.has_ineffective_operand_size_override()
@@ -779,6 +817,9 @@ impl NasmFormatter {
             OperandType::DebugRegister(reg) => {
                 out.write_register(&reg.to_string());
             }
+            OperandType::TestRegister(reg) => {
+                out.write_register(&reg.to_string());
+            }
             OperandType::AddressingMode16(mode, _) => {
                 let base_register = if let Some(seg) = seg_override {
                     seg
@@ -835,8 +876,8 @@ mod tests {
     use std::io::Cursor;
 
     use crate::{
-        SegmentSize,
         decoder::{CpuType, Decoder, DecoderOptions},
+        SegmentSize,
     };
     #[test]
     fn format_nop_386() {

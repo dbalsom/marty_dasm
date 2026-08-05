@@ -34,13 +34,13 @@ use crate::{
         OperandType,
         OperandType::{AddressingMode16, AddressingMode32},
         PrefixFlags,
-        Register8,
         Register16,
         Register32,
+        Register8,
         SegmentSize,
     },
     error::DecodeError,
-    i80386::{Intel80386, gdr::GdrEntry},
+    i80386::{gdr::GdrEntry, Intel80386},
     instruction::Instruction,
     mnemonic::Mnemonic,
     modrm16::ModRmByte16,
@@ -92,6 +92,7 @@ pub enum OperandTemplate {
     SegmentRegister,
     ControlRegister,
     DebugRegister,
+    TestRegister,
     FixedImmediate8(u8),
     Immediate8,
     Immediate16,
@@ -106,7 +107,7 @@ pub enum OperandTemplate {
     FixedRegister8(Register8),
     FixedRegister16(Register16),
     FixedRegister16or32(Register16),
-    RegisterA16orA32(Register16),
+    LoopCounter,
     FarPointer,
 }
 
@@ -178,6 +179,7 @@ impl OperandTemplate {
             }
             (OperandTemplate::ControlRegister, _) => Ok(OperandType::ControlRegister(modrm.unwrap().op2_reg_ctrl())),
             (OperandTemplate::DebugRegister, _) => Ok(OperandType::DebugRegister(modrm.unwrap().op2_reg_dbg())),
+            (OperandTemplate::TestRegister, _) => Ok(OperandType::TestRegister(modrm.unwrap().op2_reg_test())),
             (OperandTemplate::FixedImmediate8(val), _) => {
                 // Fixed immediate is assumed, no bytes read.
                 instruction.disambiguate = true;
@@ -279,6 +281,10 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
                 Ok(OperandType::Register32(Register32::from(*r16)))
             }
+            (OperandTemplate::LoopCounter, _) => match instruction.has_address_size_override() {
+                true => Ok(OperandType::Register16(Register16::CX)),
+                false => Ok(OperandType::NoOperand),
+            },
             (OperandTemplate::FarPointer, OperandSize::Operand16) => {
                 let (segment, offset) = bytes.peek_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
@@ -389,6 +395,7 @@ impl OperandTemplate {
             }
             (OperandTemplate::ControlRegister, _) => Ok(OperandType::ControlRegister(modrm.unwrap().op2_reg_ctrl())),
             (OperandTemplate::DebugRegister, _) => Ok(OperandType::DebugRegister(modrm.unwrap().op2_reg_dbg())),
+            (OperandTemplate::TestRegister, _) => Ok(OperandType::TestRegister(modrm.unwrap().op2_reg_test())),
             (OperandTemplate::FixedImmediate8(val), _) => {
                 // Fixed immediate is assumed, no bytes read.
                 instruction.disambiguate = true;
@@ -496,8 +503,8 @@ impl OperandTemplate {
             (OperandTemplate::FixedRegister16or32(r16), OperandSize::Operand32) => {
                 Ok(OperandType::Register32(Register32::from(*r16)))
             }
-            (OperandTemplate::RegisterA16orA32(r16), _) => match instruction.has_address_size_override() {
-                true => Ok(OperandType::Register32(Register32::from(*r16))),
+            (OperandTemplate::LoopCounter, _) => match instruction.has_address_size_override() {
+                true => Ok(OperandType::Register32(Register32::ECX)),
                 false => Ok(OperandType::NoOperand),
             },
             (OperandTemplate::FarPointer, OperandSize::Operand16) => {
@@ -860,9 +867,9 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xDE, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0xDF, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
 
-    inst!( 0xE0, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPNE,  Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
-    inst!( 0xE1, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPE,   Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
-    inst!( 0xE2, o, 0, 0b0000_0000_0111_0000, 0x140, LOOP,    Ot::Relative8,                          Ot::RegisterA16orA32(Register16::CX));
+    inst!( 0xE0, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPNE,  Ot::Relative8,                          Ot::LoopCounter);
+    inst!( 0xE1, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPE,   Ot::Relative8,                          Ot::LoopCounter);
+    inst!( 0xE2, o, 0, 0b0000_0000_0111_0000, 0x140, LOOP,    Ot::Relative8,                          Ot::LoopCounter);
     inst!( 0xE3, o, 0, 0b0000_0000_0111_0000, 0x134, JCXZ,    Ot::Relative8,                          Ot::NoOperand);
     inst!( 0xE4, o, 0, 0b0000_1000_1001_0011, 0x0ac, IN,      Ot::FixedRegister8(Register8::AL),      Ot::Immediate8);
     inst!( 0xE5, o, 0, 0b0000_1000_1101_0011, 0x0ac, IN,      Ot::FixedRegister16or32(Register16::AX),Ot::Immediate8);
@@ -1029,12 +1036,14 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     // 0F extended opcodes follow.
     inst!( 0x00, o, 1, 0b0000_1000_0010_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0000_1000_0010_0000, 0x000, Group ,  Ot::NoOperand,                          Ot::NoOperand);
-    inst!( 0x02, o, 0, 0b0000_1000_0110_0000, 0x000, LAR,     Ot::Register16,                         Ot::ModRM16);
-    inst!( 0x03, o, 0, 0b0000_1000_0110_0000, 0x000, LSL,     Ot::Register16,                         Ot::ModRM16);
+    inst!( 0x02, o, 0, 0b0000_1000_0110_0000, 0x000, LAR,     Ot::Register16or32,                     Ot::ModRM16or32);
+    inst!( 0x03, o, 0, 0b0000_1000_0110_0000, 0x000, LSL,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst_skip!(o, 2); // Skip 0x04 & 0x05
     inst!( 0x06, o, 0, 0b0000_1000_0001_0000, 0x000, CLTS,    Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x07, o, 0, 0b0000_1000_0001_0000, 0x000, LOADALL, Ot::NoOperand,                          Ot::NoOperand);
-    inst_skip!(o, 8); // Skip 0x08-0x0F
+    inst_skip!(o, 3); // Skip 0x08-0x0A
+    inst!( 0x0B, o, 0, 0b0000_0000_0001_0000, 0x000, UD2,     Ot::NoOperand,                          Ot::NoOperand);
+    inst_skip!(o, 4); // Skip 0x0C-0x0F
     inst!( 0x10, o, 0, 0b0000_1010_0010_0010, 0x000, UMOV,    Ot::ModRM8,                             Ot::Register8);
     inst!( 0x11, o, 0, 0b0000_1010_0110_0010, 0x000, UMOV,    Ot::ModRM16or32,                        Ot::Register16or32);
     inst!( 0x12, o, 0, 0b0000_1010_0010_0000, 0x000, UMOV,    Ot::Register8,                          Ot::ModRM8);
@@ -1044,7 +1053,10 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0x21, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::DebugRegister);
     inst!( 0x22, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ControlRegister,                    Ot::ModRM32);
     inst!( 0x23, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::DebugRegister,                      Ot::ModRM32);
-    inst_skip!(o, 92); // Skip 0x24-0x7F
+    inst!( 0x24, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::TestRegister);
+    inst_skip!(o, 1); // Skip 0x25
+    inst!( 0x26, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::TestRegister,                       Ot::ModRM32);
+    inst_skip!(o, 89); // Skip 0x27-0x7F
     inst!( 0x80, o, 0, 0b1000_0000_0101_0000, 0x000, JO,      Ot::Relative16or32,                     Ot::NoOperand);
     inst!( 0x81, o, 0, 0b1000_0000_0101_0000, 0x000, JNO,     Ot::Relative16or32,                     Ot::NoOperand);
     inst!( 0x82, o, 0, 0b1000_0000_0101_0000, 0x000, JB,      Ot::Relative16or32,                     Ot::NoOperand);
@@ -1099,7 +1111,8 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xB5, o, 0, 0b0010_0000_0110_0000, 0x000, LGS,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0xB6, o, 0, 0b1000_0000_0110_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM8);
     inst!( 0xB7, o, 0, 0b1000_0000_0110_0000, 0x000, MOVZX,   Ot::Register16or32,                     Ot::ModRM16);
-    inst_skip!(o, 2);
+    inst_skip!(o, 1); // Skip 0xB8
+    inst!( 0xB9, o, 0, 0b0000_0000_0001_0000, 0x000, UD1,     Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xBA, o, 3, 0b0000_0000_0110_0000, 0x000, Group,   Ot::NoOperand,                          Ot::NoOperand);
 
     inst!( 0xBB, o, 0, 0b0000_0000_0110_0000, 0x000, BTC,     Ot::ModRM16or32,                        Ot::Register16or32);
@@ -1107,10 +1120,10 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xBD, o, 0, 0b0000_0000_0110_0000, 0x000, BSR,     Ot::Register16or32,                     Ot::ModRM16or32);
     inst!( 0xBE, o, 0, 0b1000_0000_0110_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM8);
     inst!( 0xBF, o, 0, 0b1000_0000_0110_0000, 0x000, MOVSX,   Ot::Register16or32,                     Ot::ModRM16);
-    inst_skip!(o, 63); // Skip 0xC0-0xFF
-    inst!( 0xFF, o, 0, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::NoOperand,                          Ot::NoOperand);
+    inst_skip!(o, 63); // Skip 0xC0-0xFE
+    inst!( 0xFF, o, 0, 0b0000_0000_0001_0000, 0x000, UD0,     Ot::NoOperand,                          Ot::NoOperand);
     // Group 6
-    inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, SLDT,    Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0x00, o, 2, 0b0000_0000_0100_0000, 0x000, SLDT,    Ot::ModRM16orR32,                       Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, STR,     Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, LLDT,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x00, o, 2, 0b0000_0000_0000_0000, 0x000, LTR,     Ot::ModRM16,                            Ot::NoOperand);
@@ -1123,7 +1136,7 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0x01, o, 2, 0b0010_0000_0000_0000, 0x000, SIDT,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0010_0000_0000_0000, 0x000, LGDT,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0010_0000_0000_0000, 0x000, LIDT,    Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0x01, o, 2, 0b0000_0000_0000_0000, 0x000, SMSW,    Ot::ModRM16or32,                        Ot::NoOperand);
+    inst!( 0x01, o, 2, 0b0000_0000_0100_0000, 0x000, SMSW,    Ot::ModRM16orR32,                       Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0000_0000_0000_0000, 0x000, LMSW,    Ot::ModRM16,                            Ot::NoOperand);
     inst!( 0x01, o, 2, 0b0000_0000_0000_0000, 0x000, Invalid, Ot::NoOperand,                          Ot::NoOperand);
@@ -1270,23 +1283,22 @@ impl Intel80386 {
         let mut decode_idx = decode_idx_base + opcode as usize;
         let mut op_lu = &DECODE[decode_idx];
 
-        let force_reg = op_lu.gdr.is_always_register();
-
         instruction.raw_prefix_flags = op_prefixes | prefix_candidates;
 
-        // Resolve pending prefixes
-        if (prefix_candidates & PrefixFlags::OPERAND_SIZE != 0) && op_lu.gdr.can_have_operand_size() {
-            // This instruction can be affected by an operand-size override prefix
-            op_prefixes |= PrefixFlags::OPERAND_SIZE;
-            operand_size = operand_size.with_override();
-        }
+        // Address-size prefixes must be resolved before reading ModR/M. Operand-size prefixes
+        // are resolved after any group lookup, when op_lu identifies the actual instruction.
         if (prefix_candidates & PrefixFlags::ADDRESS_SIZE != 0) && op_lu.gdr.can_have_address_size() {
             // This instruction can be affected by an address-size override prefix
             op_prefixes |= PrefixFlags::ADDRESS_SIZE;
             address_size = address_size.with_override();
         }
 
-        instruction.effective_prefix_flags = op_prefixes;
+        let resolve_operand_size = |op_lu: &InstTemplate, operand_size: &mut OperandSize, op_prefixes: &mut u32| {
+            if (prefix_candidates & PrefixFlags::OPERAND_SIZE != 0) && op_lu.gdr.can_have_operand_size() {
+                *op_prefixes |= PrefixFlags::OPERAND_SIZE;
+                *operand_size = operand_size.with_override();
+            }
+        };
 
         // Prepare to read Mod/RM
         let mut displacement = Displacement::NoDisp;
@@ -1318,6 +1330,9 @@ impl Intel80386 {
                 else {
                     None
                 };
+
+                resolve_operand_size(op_lu, &mut operand_size, &mut op_prefixes);
+                let force_reg = op_lu.gdr.is_always_register();
 
                 // Validity check
                 if let Some(modrm) = modrm {
@@ -1373,6 +1388,9 @@ impl Intel80386 {
                     (None, None)
                 };
 
+                resolve_operand_size(op_lu, &mut operand_size, &mut op_prefixes);
+                let force_reg = op_lu.gdr.is_always_register();
+
                 if let Some(modrm) = modrm32 {
                     if !op_lu.gdr.has_reg_form() && modrm.mod_value() == 0b11 {
                         // This instruction does not support the 'reg' form of ModRM, but the ModRM
@@ -1400,6 +1418,8 @@ impl Intel80386 {
                 instruction.operand3_type = op_lu.operand3.resolve_operand_a32(bytes, operand_size, &modrm32, &sib, displacement, &mut instruction, force_reg)?;
             }
         }
+
+        instruction.effective_prefix_flags = op_prefixes;
 
         // Set mnemonic from decode table
         instruction.is_complete = true;
