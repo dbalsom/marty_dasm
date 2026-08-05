@@ -1034,7 +1034,12 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst_skip!(o, 2); // Skip 0x04 & 0x05
     inst!( 0x06, o, 0, 0b0000_1000_0001_0000, 0x000, CLTS,    Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0x07, o, 0, 0b0000_1000_0001_0000, 0x000, LOADALL, Ot::NoOperand,                          Ot::NoOperand);
-    inst_skip!(o, 24); // Skip 0x08-0x19
+    inst_skip!(o, 8); // Skip 0x08-0x0F
+    inst!( 0x10, o, 0, 0b0000_1010_0010_0010, 0x000, UMOV,    Ot::ModRM8,                             Ot::Register8);
+    inst!( 0x11, o, 0, 0b0000_1010_0110_0010, 0x000, UMOV,    Ot::ModRM16or32,                        Ot::Register16or32);
+    inst!( 0x12, o, 0, 0b0000_1010_0010_0000, 0x000, UMOV,    Ot::Register8,                          Ot::ModRM8);
+    inst!( 0x13, o, 0, 0b0000_1010_0110_0000, 0x000, UMOV,    Ot::Register16or32,                     Ot::ModRM16or32);
+    inst_skip!(o, 12); // Skip 0x14-0x1F
     inst!( 0x20, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::ControlRegister);
     inst!( 0x21, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ModRM32,                            Ot::DebugRegister);
     inst!( 0x22, o, 0, 0b0100_1000_0000_0000, 0x000, MOV,     Ot::ControlRegister,                    Ot::ModRM32);

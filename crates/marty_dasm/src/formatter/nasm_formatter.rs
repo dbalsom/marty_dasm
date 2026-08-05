@@ -690,26 +690,38 @@ impl NasmFormatter {
                 out.write_immediate(&display);
             }
             OperandType::Relative8(num) => {
-                let ip_16: u16 = opts.ip as u16;
-                let display = ip_16
-                    .wrapping_add_signed(num as i16)
-                    .wrapping_add(instruction.instruction_bytes.len() as u16);
-
                 match instruction.operand_size {
-                    OperandSize::Operand16 => out.write_relative(&format_hex_or_decimal_16(display)),
-                    OperandSize::Operand32 => out.write_relative(&format_hex_or_decimal_32(display)),
+                    OperandSize::Operand16 => {
+                        let display = (opts.ip as u16)
+                            .wrapping_add_signed(num as i16)
+                            .wrapping_add(instruction.instruction_bytes.len() as u16);
+                        out.write_relative(&format_hex_or_decimal_16(display));
+                    }
+                    OperandSize::Operand32 => {
+                        let display = opts
+                            .ip
+                            .wrapping_add_signed(num as i32)
+                            .wrapping_add(instruction.instruction_bytes.len() as u32);
+                        out.write_relative(&format_hex_or_decimal_32(display));
+                    }
                     _ => out.write_text("??BADOP??"),
                 };
             }
             OperandType::Relative16(num) => {
-                let ip_16: u16 = opts.ip as u16;
-                let display = ip_16
-                    .wrapping_add(num as u16)
-                    .wrapping_add(instruction.instruction_bytes.len() as u16);
-
                 match instruction.operand_size {
-                    OperandSize::Operand16 => out.write_relative(&format_hex_or_decimal_16(display)),
-                    OperandSize::Operand32 => out.write_relative(&format_hex_or_decimal_32(display)),
+                    OperandSize::Operand16 => {
+                        let display = (opts.ip as u16)
+                            .wrapping_add_signed(num)
+                            .wrapping_add(instruction.instruction_bytes.len() as u16);
+                        out.write_relative(&format_hex_or_decimal_16(display));
+                    }
+                    OperandSize::Operand32 => {
+                        let display = opts
+                            .ip
+                            .wrapping_add_signed(num as i32)
+                            .wrapping_add(instruction.instruction_bytes.len() as u32);
+                        out.write_relative(&format_hex_or_decimal_32(display));
+                    }
                     _ => out.write_text("??BADOP??"),
                 };
             }
@@ -875,5 +887,53 @@ mod tests {
         NasmFormatter.format_instruction(&inst, &FormatOptions::default(), &mut output);
 
         assert_eq!(output, "a16 movsd");
+    }
+
+    #[test]
+    fn format_short_branch_386_32_preserves_full_ip() {
+        let bytes = [0x74, 0x23];
+        let mut dec = Decoder::new(
+            Cursor::new(&bytes[..]),
+            DecoderOptions {
+                cpu: CpuType::Intel80386,
+                segment_size: SegmentSize::Segment32,
+            },
+        );
+        let inst = dec.decode_next().expect("decode ok");
+        let mut output = String::new();
+        NasmFormatter.format_instruction(
+            &inst,
+            &FormatOptions {
+                ip: 0x1234_7400,
+                ..Default::default()
+            },
+            &mut output,
+        );
+
+        assert_eq!(output, "jz short 12347425h");
+    }
+
+    #[test]
+    fn format_short_branch_386_16_wraps_ip() {
+        let bytes = [0xEB, 0x20];
+        let mut dec = Decoder::new(
+            Cursor::new(&bytes[..]),
+            DecoderOptions {
+                cpu: CpuType::Intel80386,
+                segment_size: SegmentSize::Segment16,
+            },
+        );
+        let inst = dec.decode_next().expect("decode ok");
+        let mut output = String::new();
+        NasmFormatter.format_instruction(
+            &inst,
+            &FormatOptions {
+                ip: 0x1234_FFF0,
+                ..Default::default()
+            },
+            &mut output,
+        );
+
+        assert_eq!(output, "jmp short 0012h");
     }
 }

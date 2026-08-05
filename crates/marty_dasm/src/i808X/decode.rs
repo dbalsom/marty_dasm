@@ -606,6 +606,7 @@ impl Intel808x {
 
         let mut instruction = Instruction {
             is_valid: true,
+            operand_size: OperandSize::Operand16,
             ..Instruction::default()
         };
 

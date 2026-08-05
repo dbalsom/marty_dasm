@@ -36,3 +36,9 @@ pub enum DecodeError {
     #[error("Unknown error")]
     Unknown,
 }
+
+impl DecodeError {
+    pub fn is_unexpected_eof(&self) -> bool {
+        matches!(self, Self::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof)
+    }
+}
