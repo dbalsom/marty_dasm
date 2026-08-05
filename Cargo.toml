@@ -1,14 +1,15 @@
 [workspace]
 members = [
     "crates/marty_dasm",
-    "crates/marty_fuzzer"
-, "crates/marty_isadb"]
+    "crates/marty_dasm_web",
+    "crates/marty_fuzzer",
+    "crates/marty_isadb",
+]
 
 resolver = "2"
 default-members = ["crates/marty_dasm"]
 
 [workspace.package]
-version = "0.3.0"
 edition = "2021"
 authors = ["Daniel Balsom"]
 license = "MIT"
