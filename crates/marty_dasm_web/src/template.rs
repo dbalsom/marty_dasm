@@ -17,7 +17,7 @@ pub(crate) fn render_app() -> Result<String, minijinja::Error> {
         cpus => vec![
             context! { value => "intel808x", label => "Intel 8088 / 8086" },
             context! { value => "necvx0", label => "NEC V20 / V30" },
-            context! { value => "intel80386", label => "Intel 80386 (32-bit)" },
+            context! { value => "intel80386", label => "Intel 80386" },
         ],
     })
 }
@@ -32,6 +32,7 @@ mod tests {
         assert!(app.contains("Intel 80386"));
         assert!(app.contains("href=\"https://github.com/dbalsom\""));
         assert!(app.contains("id=\"random-byline\""));
+        assert!(app.contains("id=\"share-link\""));
         assert!(app.contains("id=\"banner-container\""));
         assert!(app.contains("id=\"panic-banner\""));
         assert!(app.contains("id=\"panic-report-prompt\""));

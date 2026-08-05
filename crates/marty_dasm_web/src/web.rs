@@ -20,9 +20,10 @@ use crate::{
         restore_disassembly_state,
         restore_input_height,
         restore_theme,
+        RestoreDisassemblyStateOptions,
     },
     panic_report::install_panic_hook,
-    query::{is_raw_requested, restore_query_state, update_query},
+    query::{update_query, QueryState},
     template::render_app,
 };
 
@@ -51,11 +52,13 @@ pub fn start() -> Result<(), JsValue> {
     let window = web_sys::window().ok_or("browser window is unavailable")?;
     let document = window.document().ok_or("document is unavailable")?;
     let body = document.body().ok_or("document body is unavailable")?;
-    let raw_requested = is_raw_requested(&window)?;
+    let query_state = QueryState::from_window(&window)?;
+    let raw_requested = query_state.is_raw_requested();
     body.set_inner_html(&render_app().map_err(js_error)?);
     set_random_byline(&window, &document)?;
 
     let document_root = document.document_element().ok_or("document root is unavailable")?;
+    let share_link = element::<HtmlElement>(&document, "share-link")?;
     let theme_toggle = element::<HtmlElement>(&document, "theme-toggle")?;
     let storage = window.local_storage()?;
 
@@ -88,6 +91,7 @@ pub fn start() -> Result<(), JsValue> {
     theme_handler.forget();
 
     let input = element::<HtmlTextAreaElement>(&document, "hex-input")?;
+    let copy_hex_input = element::<HtmlElement>(&document, "copy-input")?;
     let clear_input = element::<HtmlElement>(&document, "clear-input")?;
     let cpu = element::<HtmlSelectElement>(&document, "cpu-select")?;
     let segment_size = element::<HtmlSelectElement>(&document, "segment-size-select")?;
@@ -103,11 +107,24 @@ pub fn start() -> Result<(), JsValue> {
 
     // Raw output ignores localstorage
     if !raw_requested {
-        restore_disassembly_state(storage.as_ref(), &input, &cpu, &segment_size, &offset);
+        let query_overrides = query_state.overrides();
+        restore_disassembly_state(
+            storage.as_ref(),
+            &input,
+            &cpu,
+            &segment_size,
+            &offset,
+            RestoreDisassemblyStateOptions {
+                input: !query_overrides.input,
+                cpu: !query_overrides.cpu,
+                segment_size: !query_overrides.segment_size,
+                offset: !query_overrides.offset,
+            },
+        );
         restore_copy_preferences(storage.as_ref(), &copy_offsets, &copy_bytes);
         restore_input_height(storage.as_ref(), &input);
     }
-    let restore_error = restore_query_state(&window, &input, &cpu, &segment_size, &offset).err();
+    let restore_error = query_state.restore(&input, &cpu, &segment_size, &offset).err();
     if raw_requested {
         render_raw_output(&document, &body, &input, &cpu, &segment_size, &offset, restore_error)?;
         return Ok(());
@@ -147,6 +164,36 @@ pub fn start() -> Result<(), JsValue> {
     }
 
     let pending_uri_update: PendingUriUpdate = Rc::new(RefCell::new(None));
+
+    let share_window = window.clone();
+    let share_input = input.clone();
+    let share_cpu = cpu.clone();
+    let share_segment_size = segment_size.clone();
+    let share_offset = offset.clone();
+    let share_url_warning = url_warning.clone();
+    let share_storage = storage.clone();
+    let share_pending_uri_update = pending_uri_update.clone();
+    let share_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
+        cancel_pending_uri_update(&share_window, &share_pending_uri_update);
+        update_uri(
+            &share_window,
+            share_storage.as_ref(),
+            &share_input,
+            &share_cpu,
+            &share_segment_size,
+            &share_offset,
+            &share_url_warning,
+        );
+        if let Ok(url) = share_window.location().href() {
+            let write = share_window.navigator().clipboard().write_text(&url);
+            spawn_local(async move {
+                let _ = JsFuture::from(write).await;
+            });
+        }
+    });
+    share_link.add_event_listener_with_callback("click", share_handler.as_ref().unchecked_ref())?;
+    share_handler.forget();
+
     let input_document = document.clone();
     let input_window = window.clone();
     let input_control = input.clone();
@@ -304,6 +351,20 @@ pub fn start() -> Result<(), JsValue> {
     segment_size.add_event_listener_with_callback("change", select_callback)?;
     select_handler.forget();
 
+    let copy_hex_window = window.clone();
+    let copy_hex_control = input.clone();
+    let copy_hex_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
+        let write = copy_hex_window
+            .navigator()
+            .clipboard()
+            .write_text(&copy_hex_control.value());
+        spawn_local(async move {
+            let _ = JsFuture::from(write).await;
+        });
+    });
+    copy_hex_input.add_event_listener_with_callback("click", copy_hex_handler.as_ref().unchecked_ref())?;
+    copy_hex_handler.forget();
+
     let clear_document = document.clone();
     let clear_window = window.clone();
     let clear_input_control = input.clone();
@@ -421,16 +482,17 @@ fn update_output(
     if !supports_32_bit_segments {
         segment_size.set_value("16");
     }
-    output.set_text_content(None);
-
     match disassemble(&input.value(), &cpu.value(), &segment_size.value(), &offset.value()) {
         Ok(rows) if rows.is_empty() => {
+            output.set_text_content(None);
             append_message_row(document, output, "Enter hexadecimal machine code above.", "empty-row");
             status.set_text_content(Some("Waiting for input"));
             status.set_class_name("status");
         }
         Ok(rows) => {
-            let count = rows.len();
+            output.set_text_content(None);
+            let instruction_count = rows.len();
+            let byte_count = rows.iter().map(|row| row.byte_count).sum::<usize>();
             for row in rows {
                 let table_row = document.create_element("tr").expect("create table row");
                 if row.is_error {
@@ -442,13 +504,19 @@ fn update_output(
                 output.append_child(&table_row).expect("append table row");
             }
             status.set_text_content(Some(&format!(
-                "{count} instruction{}",
-                if count == 1 { "" } else { "s" }
+                "{byte_count} byte{}, {instruction_count} instruction{}",
+                if byte_count == 1 { "" } else { "s" },
+                if instruction_count == 1 { "" } else { "s" }
             )));
             status.set_class_name("status status--ready");
         }
+        Err(error) if error.is_incomplete_hex_byte() => {
+            status.set_text_content(Some("Waiting for another hex digit"));
+            status.set_class_name("status status--pending");
+        }
         Err(error) => {
-            append_message_row(document, output, &error, "error-row");
+            output.set_text_content(None);
+            append_message_row(document, output, &error.to_string(), "error-row");
             status.set_text_content(Some("Check the input"));
             status.set_class_name("status status--error");
         }

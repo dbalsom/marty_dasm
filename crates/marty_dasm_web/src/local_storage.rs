@@ -15,6 +15,13 @@ const COPY_BYTES_STORAGE_KEY: &str = "marty-copy-bytes";
 const MIN_SAVED_INPUT_HEIGHT: i32 = 64;
 const MAX_SAVED_INPUT_HEIGHT: i32 = 4096;
 
+pub(crate) struct RestoreDisassemblyStateOptions {
+    pub(crate) input: bool,
+    pub(crate) cpu: bool,
+    pub(crate) segment_size: bool,
+    pub(crate) offset: bool,
+}
+
 pub(crate) fn restore_theme(storage: Option<&Storage>) -> Option<String> {
     storage
         .and_then(|storage| storage.get_item(THEME_STORAGE_KEY).ok().flatten())
@@ -33,28 +40,37 @@ pub(crate) fn restore_disassembly_state(
     cpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
+    options: RestoreDisassemblyStateOptions,
 ) {
     let Some(storage) = storage
     else {
         return;
     };
 
-    if let Ok(Some(value)) = storage.get_item(CPU_STORAGE_KEY) {
-        if matches!(value.as_str(), "intel808x" | "necvx0" | "intel80386") {
-            cpu.set_value(&value);
+    if options.cpu {
+        if let Ok(Some(value)) = storage.get_item(CPU_STORAGE_KEY) {
+            if matches!(value.as_str(), "intel808x" | "necvx0" | "intel80386") {
+                cpu.set_value(&value);
+            }
         }
     }
-    if let Ok(Some(value)) = storage.get_item(SEGMENT_SIZE_STORAGE_KEY) {
-        if matches!(value.as_str(), "16" | "32") {
-            segment_size.set_value(&value);
+    if options.segment_size {
+        if let Ok(Some(value)) = storage.get_item(SEGMENT_SIZE_STORAGE_KEY) {
+            if matches!(value.as_str(), "16" | "32") {
+                segment_size.set_value(&value);
+            }
         }
     }
-    if let Ok(Some(value)) = storage.get_item(HEX_INPUT_STORAGE_KEY) {
-        input.set_value(&value);
+    if options.input {
+        if let Ok(Some(value)) = storage.get_item(HEX_INPUT_STORAGE_KEY) {
+            input.set_value(&value);
+        }
     }
-    if let Ok(Some(value)) = storage.get_item(OFFSET_STORAGE_KEY) {
-        if value.len() <= 8 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-            offset.set_value(&value);
+    if options.offset {
+        if let Ok(Some(value)) = storage.get_item(OFFSET_STORAGE_KEY) {
+            if value.len() <= 8 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                offset.set_value(&value);
+            }
         }
     }
 }

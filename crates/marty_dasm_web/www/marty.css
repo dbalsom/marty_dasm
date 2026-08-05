@@ -131,7 +131,14 @@ body.raw-page { padding: 0; }
   letter-spacing: .04em;
 }
 
-.theme-toggle {
+.header-actions {
+  display: flex;
+  gap: .5rem;
+  flex: none;
+}
+
+.theme-toggle,
+.share-link {
   display: grid;
   width: 2.5rem;
   height: 2.5rem;
@@ -143,13 +150,16 @@ body.raw-page { padding: 0; }
   cursor: pointer;
 }
 
-.theme-toggle:hover { background: var(--accent-soft); }
-.theme-toggle:focus-visible {
+.theme-toggle:hover,
+.share-link:hover { background: var(--accent-soft); }
+.theme-toggle:focus-visible,
+.share-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.theme-icon {
+.theme-icon,
+.share-icon {
   width: 1.2rem;
   height: 1.2rem;
   fill: none;
@@ -205,7 +215,12 @@ h2 {
 
 .input-help .hint { flex: 1; }
 
-.clear-input {
+.input-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+.input-button {
   margin-top: .45rem;
   padding: .2rem .45rem;
   border: 1px solid var(--border);
@@ -217,12 +232,12 @@ h2 {
   text-transform: uppercase;
 }
 
-.clear-input:hover {
+.input-button:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.clear-input:focus-visible {
+.input-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -398,12 +413,34 @@ code { font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
   outline-offset: 2px;
 }
 
+.theme-toggle,
+.share-link,
+.input-button,
+.copy-button {
+  transition:
+    background-color 60ms ease,
+    border-color 60ms ease,
+    color 60ms ease,
+    transform 60ms ease;
+}
+
+.theme-toggle:active,
+.share-link:active,
+.input-button:active,
+.copy-button:active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateY(1px) scale(.97);
+}
+
 .status {
   color: var(--muted);
   font-size: .75rem;
 }
 
 .status--ready { color: var(--accent); }
+.status--pending { color: var(--warning); }
 .status--error { color: var(--error); }
 
 table {
@@ -421,7 +458,7 @@ caption {
   clip: rect(0 0 0 0);
 }
 
-.offset-column { width: 8rem; }
+.offset-column { width: 1%; }
 .bytes-column { width: 22rem; }
 
 th,
@@ -458,7 +495,18 @@ thead th {
 .error-row > * { color: var(--error); }
 .empty-row > * { height: 15rem; color: var(--muted); }
 
+@media (max-width: 768px) {
+  .footer-mobile-hidden { display: none; }
+
+  table { min-width: 0; }
+
+  .bytes-column,
+  thead th:nth-child(2),
+  tbody td:nth-child(2) {
+    display: none;
+  }
+}
+
 @media (max-width: 700px) {
   .controls { grid-template-columns: 1fr; }
-  .bytes-column { width: 14rem; }
 }

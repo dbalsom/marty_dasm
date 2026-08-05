@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Balsom
 
 use marty_dasm::{format_instruction, CpuType, Decoder, DecoderOptions, FormatOptions, SegmentSize};
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum WebCpu {
@@ -42,33 +43,70 @@ impl WebCpu {
 pub(crate) struct DisassemblyRow {
     pub(crate) offset: String,
     pub(crate) bytes: String,
+    pub(crate) byte_count: usize,
     pub(crate) instruction: String,
     pub(crate) is_error: bool,
 }
 
-pub(crate) fn parse_hex(input: &str) -> Result<Vec<u8>, String> {
-    let normalized = input.replace([',', ';'], " ");
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum DisassemblyError {
+    IncompleteHexByte(String),
+    Message(String),
+}
+
+impl DisassemblyError {
+    pub(crate) fn is_incomplete_hex_byte(&self) -> bool {
+        matches!(self, Self::IncompleteHexByte(_))
+    }
+}
+
+impl fmt::Display for DisassemblyError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncompleteHexByte(message) | Self::Message(message) => formatter.write_str(message),
+        }
+    }
+}
+
+impl From<String> for DisassemblyError {
+    fn from(message: String) -> Self {
+        Self::Message(message)
+    }
+}
+
+pub(crate) fn parse_hex(input: &str) -> Result<Vec<u8>, DisassemblyError> {
     let mut bytes = Vec::new();
 
-    for raw_token in normalized.split_whitespace() {
-        let token = raw_token
-            .strip_prefix("0x")
-            .or_else(|| raw_token.strip_prefix("0X"))
-            .unwrap_or(raw_token);
+    for line in input.lines() {
+        let uncommented = line.split_once(';').map_or(line, |(hex, _)| hex);
+        let normalized = uncommented.replace(',', " ");
 
-        if token.is_empty() {
-            return Err(format!("Expected hexadecimal digits after '{raw_token}'."));
-        }
-        if !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-            return Err(format!("'{raw_token}' is not a hexadecimal byte."));
-        }
-        if token.len() % 2 != 0 {
-            return Err(format!("'{raw_token}' must contain an even number of hex digits."));
-        }
+        for raw_token in normalized.split_whitespace() {
+            let token = raw_token
+                .strip_prefix("0x")
+                .or_else(|| raw_token.strip_prefix("0X"))
+                .unwrap_or(raw_token);
 
-        for pair_start in (0..token.len()).step_by(2) {
-            let pair = &token[pair_start..pair_start + 2];
-            bytes.push(u8::from_str_radix(pair, 16).expect("validated hexadecimal pair"));
+            if token.is_empty() {
+                return Err(DisassemblyError::Message(format!(
+                    "Expected hexadecimal digits after '{raw_token}'."
+                )));
+            }
+            if !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return Err(DisassemblyError::Message(format!(
+                    "'{raw_token}' is not a hexadecimal byte."
+                )));
+            }
+            if token.len() % 2 != 0 {
+                return Err(DisassemblyError::IncompleteHexByte(format!(
+                    "'{raw_token}' must contain an even number of hex digits."
+                )));
+            }
+
+            for pair_start in (0..token.len()).step_by(2) {
+                let pair = &token[pair_start..pair_start + 2];
+                bytes.push(u8::from_str_radix(pair, 16).expect("validated hexadecimal pair"));
+            }
         }
     }
 
@@ -80,7 +118,7 @@ pub(crate) fn disassemble(
     cpu_value: &str,
     segment_size_value: &str,
     offset_value: &str,
-) -> Result<Vec<DisassemblyRow>, String> {
+) -> Result<Vec<DisassemblyRow>, DisassemblyError> {
     let bytes = parse_hex(input)?;
     if bytes.is_empty() {
         return Ok(Vec::new());
@@ -97,7 +135,9 @@ pub(crate) fn disassemble(
             Ok(instruction) => {
                 let consumed = instruction.instruction_bytes.len();
                 if consumed == 0 {
-                    return Err(format!("Decoder made no progress at offset {offset:04X}."));
+                    return Err(DisassemblyError::Message(format!(
+                        "Decoder made no progress at offset {offset:04X}."
+                    )));
                 }
                 let encoded = instruction
                     .instruction_bytes
@@ -115,16 +155,24 @@ pub(crate) fn disassemble(
                 rows.push(DisassemblyRow {
                     offset: format!("{:08X}", base_offset.wrapping_add(offset as u32)),
                     bytes: encoded,
+                    byte_count: consumed,
                     instruction: assembly,
                     is_error: false,
                 });
                 offset += consumed;
             }
             Err(error) => {
+                let error_message = if error.is_unexpected_eof() {
+                    "Unexpected EOF".to_owned()
+                }
+                else {
+                    error.to_string()
+                };
                 rows.push(DisassemblyRow {
                     offset: format!("{:08X}", base_offset.wrapping_add(offset as u32)),
                     bytes: format!("{:02X}", bytes[offset]),
-                    instruction: format!("db 0x{:02X} ; {error}", bytes[offset]),
+                    byte_count: 1,
+                    instruction: format!("db 0x{:02X} ; {error_message}", bytes[offset]),
                     is_error: true,
                 });
                 offset += 1;
@@ -171,15 +219,27 @@ mod tests {
     #[test]
     fn parses_spaced_prefixed_and_contiguous_hex() {
         assert_eq!(
-            parse_hex("0x90, B83412; cd 20"),
+            parse_hex("0x90, B83412\ncd 20"),
+            Ok(vec![0x90, 0xB8, 0x34, 0x12, 0xCD, 0x20])
+        );
+    }
+
+    #[test]
+    fn ignores_semicolon_comments_to_end_of_line() {
+        assert_eq!(
+            parse_hex("90 B8 ; ignored CC\n34 12; ignored\n; entire line\nCD20"),
             Ok(vec![0x90, 0xB8, 0x34, 0x12, 0xCD, 0x20])
         );
     }
 
     #[test]
     fn reports_bad_hex_without_panicking() {
-        assert!(parse_hex("90 nope").unwrap_err().contains("not a hexadecimal byte"));
-        assert!(parse_hex("909").unwrap_err().contains("even number"));
+        assert!(matches!(parse_hex("90 nope"), Err(DisassemblyError::Message(_))));
+    }
+
+    #[test]
+    fn distinguishes_an_incomplete_hex_byte_from_invalid_input() {
+        assert!(matches!(parse_hex("90 0"), Err(DisassemblyError::IncompleteHexByte(_))));
     }
 
     #[test]
@@ -189,6 +249,13 @@ mod tests {
         assert_eq!(output[0].offset, "00007C00");
         assert_eq!(output[0].bytes, "90");
         assert_eq!(output[0].instruction, "nop");
+    }
+
+    #[test]
+    fn reports_truncated_instructions_as_unexpected_eof() {
+        let output = disassemble("05", "intel808x", "16", "0").unwrap();
+
+        assert_eq!(output[0].instruction, "db 0x05 ; Unexpected EOF");
     }
 
     #[test]

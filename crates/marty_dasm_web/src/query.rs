@@ -5,41 +5,70 @@ use crate::compression::{compress_input, decompress_input, may_compress_input};
 use wasm_bindgen::JsValue;
 use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, Location, UrlSearchParams, Window};
 
-pub(crate) fn is_raw_requested(window: &Window) -> Result<bool, JsValue> {
-    let params = UrlSearchParams::new_with_str(&window.location().search()?)?;
-    Ok(params.get("raw").is_some())
+#[derive(Clone, Copy)]
+pub(crate) struct QueryOverrides {
+    pub(crate) input: bool,
+    pub(crate) cpu: bool,
+    pub(crate) segment_size: bool,
+    pub(crate) offset: bool,
 }
 
-pub(crate) fn restore_query_state(
-    window: &Window,
-    input: &HtmlTextAreaElement,
-    cpu: &HtmlSelectElement,
-    segment_size: &HtmlSelectElement,
-    offset: &HtmlInputElement,
-) -> Result<(), JsValue> {
-    let params = UrlSearchParams::new_with_str(&window.location().search()?)?;
+pub(crate) struct QueryState {
+    params: UrlSearchParams,
+}
 
-    if let Some(value) = params.get("cpu") {
-        if matches!(value.as_str(), "intel808x" | "necvx0" | "intel80386") {
-            cpu.set_value(&value);
-        }
-    }
-    if let Some(value) = params.get("segment") {
-        if matches!(value.as_str(), "16" | "32") {
-            segment_size.set_value(&value);
-        }
-    }
-    if let Some(value) = params.get("offset") {
-        offset.set_value(&value);
-    }
-    if let Some(value) = params.get("hex_gz") {
-        input.set_value(&decompress_input(&value).map_err(js_error)?);
-    }
-    else if let Some(value) = params.get("hex") {
-        input.set_value(&value);
+impl QueryState {
+    pub(crate) fn from_window(window: &Window) -> Result<Self, JsValue> {
+        Ok(Self {
+            params: UrlSearchParams::new_with_str(&window.location().search()?)?,
+        })
     }
 
-    Ok(())
+    pub(crate) fn is_raw_requested(&self) -> bool {
+        self.params.get("raw").is_some()
+    }
+
+    pub(crate) fn overrides(&self) -> QueryOverrides {
+        QueryOverrides {
+            input: self.params.get("hex").is_some() || self.params.get("hex_gz").is_some(),
+            cpu: self.params.get("cpu").is_some(),
+            segment_size: self.params.get("segment").is_some(),
+            offset: self.params.get("offset").is_some(),
+        }
+    }
+
+    pub(crate) fn restore(
+        &self,
+        input: &HtmlTextAreaElement,
+        cpu: &HtmlSelectElement,
+        segment_size: &HtmlSelectElement,
+        offset: &HtmlInputElement,
+    ) -> Result<(), JsValue> {
+        let params = &self.params;
+
+        if let Some(value) = params.get("cpu") {
+            if matches!(value.as_str(), "intel808x" | "necvx0" | "intel80386") {
+                cpu.set_value(&value);
+            }
+        }
+        if let Some(value) = params.get("segment") {
+            if matches!(value.as_str(), "16" | "32") {
+                segment_size.set_value(&value);
+            }
+        }
+        if let Some(value) = params.get("offset") {
+            offset.set_value(&value);
+        }
+        if let Some(value) = params.get("hex_gz") {
+            input.set_value("");
+            input.set_value(&decompress_input(&value).map_err(js_error)?);
+        }
+        else if let Some(value) = params.get("hex") {
+            input.set_value(&value);
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) fn update_query(
