@@ -43,3 +43,6 @@ pub mod prelude;
 mod sib;
 
 pub use prelude::*;
+
+/// The version of the `marty_dasm` crate used at compile time.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -21,8 +21,25 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{AddressOffset16, ControlRegister, DebugRegister, Displacement, Register16, Register32, Register8, CREGISTER_LUT, DREGISTER_LUT, REGISTER16_LUT, REGISTER32_LUT, REGISTER8_LUT, SREGISTER16_LUT, SREGISTER16_LUT_386};
+use crate::{
+    byte_reader::ByteReader,
+    cpu_common::{
+        AddressOffset16,
+        CREGISTER_LUT,
+        ControlRegister,
+        DREGISTER_LUT,
+        DebugRegister,
+        Displacement,
+        REGISTER8_LUT,
+        REGISTER16_LUT,
+        REGISTER32_LUT,
+        Register8,
+        Register16,
+        Register32,
+        SREGISTER16_LUT,
+        SREGISTER16_LUT_386,
+    },
+};
 
 #[derive(Copy, Clone)]
 pub struct ModRmByte16 {
@@ -33,7 +50,6 @@ pub struct ModRmByte16 {
     disp: Displacement,
     addressing_mode: AddressOffset16,
 }
-
 
 const MODRM16_TABLE: [ModRmByte16; 256] = {
     let mut table: [ModRmByte16; 256] = [ModRmByte16 {
@@ -125,9 +141,7 @@ const MODRM16_TABLE: [ModRmByte16; 256] = {
     table
 };
 
-
 impl ModRmByte16 {
-
     const MODRM_ADDR_MASK: u8 = 0b11_000_111;
 
     // 16-bit modrm bitmasks
@@ -169,7 +183,10 @@ impl ModRmByte16 {
     }
 
     /// Read the modrm byte and look up the appropriate value from the modrm table.
-    pub fn read(bytes: &mut impl ByteReader, instruction_bytes: &mut Vec<u8>) -> Result<ModRmByte16, Box<dyn std::error::Error>> {
+    pub fn read(
+        bytes: &mut impl ByteReader,
+        instruction_bytes: &mut Vec<u8>,
+    ) -> Result<ModRmByte16, Box<dyn std::error::Error>> {
         let raw_modrm_byte = bytes.read_u8()?;
         let mut modrm = ModRmByte16::from_byte(raw_modrm_byte);
         instruction_bytes.push(raw_modrm_byte);
@@ -187,7 +204,7 @@ impl ModRmByte16 {
                     instruction_bytes.extend_from_slice(&disp.to_le_bytes());
                     modrm.disp = Displacement::Disp16(disp as i16);
                 }
-                _ => { /* No displacement to read */ },
+                _ => { /* No displacement to read */ }
             }
         }
         Ok(modrm)
@@ -275,7 +292,9 @@ impl ModRmByte16 {
 
     // Interpret the 'REG' field as a 3 bit opcode extension
     #[inline(always)]
-    pub fn op_extension(&self) -> u8 { self.b_reg }
+    pub fn op_extension(&self) -> u8 {
+        self.b_reg
+    }
 
     // Return whether the modrm byte specifies a memory addressing mode
     #[inline(always)]

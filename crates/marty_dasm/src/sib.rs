@@ -21,9 +21,10 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 */
-use crate::byte_reader::ByteReader;
-use crate::cpu_common::{AddressOffset32, BaseRegister, Displacement, ScaledIndex, SibScale, REGISTER32_LUT};
-use crate::cpu_common::Register32;
+use crate::{
+    byte_reader::ByteReader,
+    cpu_common::{AddressOffset32, BaseRegister, Displacement, REGISTER32_LUT, Register32, ScaledIndex, SibScale},
+};
 
 pub const SIB_INDEX_MASK: u8 = 0b11_111_000;
 pub const SIB_BASE_MASK: u8 = 0b00_000_111;
@@ -65,7 +66,6 @@ const SIB_NONE3: u8 = 0b11_100_000;
 const SIB_EBP_S8: u8 = 0b11_101_000;
 const SIB_ESI_S8: u8 = 0b11_110_000;
 const SIB_EDI_S8: u8 = 0b11_111_000;
-
 
 #[derive(Copy, Clone)]
 pub struct SibByte {
@@ -179,7 +179,12 @@ impl SibByte {
         SIB_TABLE[((modrm_mod & 0x03) as usize * 256) + byte as usize].clone()
     }
 
-    pub fn read(bytes: &mut impl ByteReader, modrm_mod: u8, displacement: Displacement, instruction_bytes: &mut Vec<u8>) -> Result<SibByte, Box<dyn std::error::Error>> {
+    pub fn read(
+        bytes: &mut impl ByteReader,
+        modrm_mod: u8,
+        displacement: Displacement,
+        instruction_bytes: &mut Vec<u8>,
+    ) -> Result<SibByte, Box<dyn std::error::Error>> {
         let raw_sib_byte = bytes.read_u8()?;
         let mut sib = SibByte::from_byte(raw_sib_byte, modrm_mod);
         instruction_bytes.push(raw_sib_byte);
@@ -214,10 +219,7 @@ impl SibByte {
     }
 
     pub fn has_disp32(&self) -> bool {
-        matches!(
-            self.addressing_mode,
-            AddressOffset32::SibDisp32(_, _, _)
-        )
+        matches!(self.addressing_mode, AddressOffset32::SibDisp32(_, _, _))
     }
 
     pub fn set_displacement(&mut self, displacement: Displacement) {

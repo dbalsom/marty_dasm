@@ -92,46 +92,61 @@ pub struct TokenStream {
 }
 
 impl TokenStream {
-    pub fn new() -> Self { Self { tokens: Vec::new() } }
+    pub fn new() -> Self {
+        Self { tokens: Vec::new() }
+    }
 
     /// Iterate over collected tokens
-    pub fn iter(&self) -> impl Iterator<Item = &TokenItem> { self.tokens.iter() }
+    pub fn iter(&self) -> impl Iterator<Item = &TokenItem> {
+        self.tokens.iter()
+    }
 
     /// Render collected tokens into a single String
     pub fn to_string_flat(&self) -> String {
         let mut s = String::new();
-        for t in &self.tokens { s.push_str(&t.to_string()); }
+        for t in &self.tokens {
+            s.push_str(&t.to_string());
+        }
         s
     }
 
     /// Helper to push a whitespace token
-    pub fn ws(&mut self) { self.tokens.push(TokenItem::Decorator(DecoratorToken::Whitespace(" ".into()))); }
+    pub fn ws(&mut self) {
+        self.tokens
+            .push(TokenItem::Decorator(DecoratorToken::Whitespace(" ".into())));
+    }
 }
 
 impl FormatterOutput for TokenStream {
     fn write_text(&mut self, s: &str) {
-        self.tokens.push(TokenItem::Decorator(DecoratorToken::Text(s.to_string())));
+        self.tokens
+            .push(TokenItem::Decorator(DecoratorToken::Text(s.to_string())));
     }
 
     fn write_prefix(&mut self, s: &str) {
-        self.tokens.push(TokenItem::Semantic(SemanticToken::Prefix(s.to_string())));
+        self.tokens
+            .push(TokenItem::Semantic(SemanticToken::Prefix(s.to_string())));
     }
 
     fn write_register(&mut self, s: &str) {
-        self.tokens.push(TokenItem::Semantic(SemanticToken::Register(s.to_string())));
+        self.tokens
+            .push(TokenItem::Semantic(SemanticToken::Register(s.to_string())));
     }
 
     fn write_mnemonic(&mut self, s: &str) {
-        self.tokens.push(TokenItem::Semantic(SemanticToken::Mnemonic(s.to_string())));
+        self.tokens
+            .push(TokenItem::Semantic(SemanticToken::Mnemonic(s.to_string())));
     }
 
     fn write_operand(&mut self, s: &str) {
         // Without deeper semantic context, treat as a generic operand token
-        self.tokens.push(TokenItem::Semantic(SemanticToken::Operand(s.to_string())));
+        self.tokens
+            .push(TokenItem::Semantic(SemanticToken::Operand(s.to_string())));
     }
 
     fn write_displacement(&mut self, s: &str) {
-        self.tokens.push(TokenItem::Semantic(SemanticToken::Displacement(s.to_string())));
+        self.tokens
+            .push(TokenItem::Semantic(SemanticToken::Displacement(s.to_string())));
     }
 
     fn write_separator(&mut self, s: &str) {
@@ -141,9 +156,15 @@ impl FormatterOutput for TokenStream {
             "]" => self.tokens.push(TokenItem::Decorator(DecoratorToken::CloseBracket)),
             "," => self.tokens.push(TokenItem::Decorator(DecoratorToken::Comma)),
             ":" => self.tokens.push(TokenItem::Decorator(DecoratorToken::Colon)),
-            ws if ws.trim().is_empty() => self.tokens.push(TokenItem::Decorator(DecoratorToken::Whitespace(ws.to_string()))),
-            other if other.chars().all(|c| c.is_ascii_hexdigit()) => self.tokens.push(TokenItem::Decorator(DecoratorToken::Number(other.to_string()))),
-            other => self.tokens.push(TokenItem::Decorator(DecoratorToken::Text(other.to_string()))),
+            ws if ws.trim().is_empty() => self
+                .tokens
+                .push(TokenItem::Decorator(DecoratorToken::Whitespace(ws.to_string()))),
+            other if other.chars().all(|c| c.is_ascii_hexdigit()) => self
+                .tokens
+                .push(TokenItem::Decorator(DecoratorToken::Number(other.to_string()))),
+            other => self
+                .tokens
+                .push(TokenItem::Decorator(DecoratorToken::Text(other.to_string()))),
         }
     }
 
@@ -152,7 +173,9 @@ impl FormatterOutput for TokenStream {
             "+" => self.tokens.push(TokenItem::Decorator(DecoratorToken::Plus)),
             "-" => self.tokens.push(TokenItem::Decorator(DecoratorToken::Minus)),
             "*" => self.tokens.push(TokenItem::Decorator(DecoratorToken::Multiply)),
-            other => self.tokens.push(TokenItem::Decorator(DecoratorToken::Text(other.to_string()))),
+            other => self
+                .tokens
+                .push(TokenItem::Decorator(DecoratorToken::Text(other.to_string()))),
         }
     }
 }

@@ -117,7 +117,7 @@ pub trait ByteReader: BufRead {
             0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "peek_farptr16(): EOF")),
             n => Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("peek_farptr16(): insufficient bytes: {n} byte(s) buffered")
+                format!("peek_farptr16(): insufficient bytes: {n} byte(s) buffered"),
             )),
         }
     }
@@ -134,7 +134,7 @@ pub trait ByteReader: BufRead {
             0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "read_farptr16(): EOF")),
             n => Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("read_farptr16(): insufficient bytes: {n} byte(s) buffered")
+                format!("read_farptr16(): insufficient bytes: {n} byte(s) buffered"),
             )),
         }
     }
@@ -151,7 +151,7 @@ pub trait ByteReader: BufRead {
             0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "read_farptr32(): EOF")),
             n => Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("read_farptr16(): insufficient bytes: {n} byte(s) buffered")
+                format!("read_farptr16(): insufficient bytes: {n} byte(s) buffered"),
             )),
         }
     }

@@ -22,9 +22,21 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-pub use crate::instruction::Instruction;
-pub use crate::decoder::{Decoder, DecoderOptions, CpuType, decode_one};
-pub use crate::formatter::{Format, FormatterOutput, nasm_formatter::NasmFormatter, FormatOptions, format_instruction};
-pub use crate::formatter::{Token, TokenItem, SemanticToken, DecoratorToken, TokenStream};
-pub use crate::cpu_common::{AddressSize, SegmentSize};
-pub use crate::opcode::Opcode;
+pub use crate::{
+    cpu_common::{AddressSize, SegmentSize},
+    decoder::{CpuType, Decoder, DecoderOptions, decode_one},
+    formatter::{
+        DecoratorToken,
+        Format,
+        FormatOptions,
+        FormatterOutput,
+        SemanticToken,
+        Token,
+        TokenItem,
+        TokenStream,
+        format_instruction,
+        nasm_formatter::NasmFormatter,
+    },
+    instruction::Instruction,
+    opcode::Opcode,
+};
