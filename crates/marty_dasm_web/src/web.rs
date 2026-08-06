@@ -9,7 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     bylines::set_random_byline,
-    disassembly::{disassemble, format_disassembly_text},
+    disassembly::{binary_md5, disassemble, disassemble_bytes, format_disassembly_text, parse_hex},
     local_storage::{
         observe_input_height,
         persist_copy_preferences,
@@ -91,6 +91,8 @@ pub fn start() -> Result<(), JsValue> {
     theme_handler.forget();
 
     let input = element::<HtmlTextAreaElement>(&document, "hex-input")?;
+    let binary_byte_count = element::<HtmlElement>(&document, "binary-byte-count")?;
+    let binary_md5_output = element::<HtmlElement>(&document, "binary-md5")?;
     let copy_hex_input = element::<HtmlElement>(&document, "copy-input")?;
     let clear_input = element::<HtmlElement>(&document, "clear-input")?;
     let cpu = element::<HtmlSelectElement>(&document, "cpu-select")?;
@@ -142,6 +144,8 @@ pub fn start() -> Result<(), JsValue> {
         &output,
         &status,
         &fpu_warning,
+        &binary_byte_count,
+        &binary_md5_output,
     );
 
     update_uri(
@@ -204,6 +208,8 @@ pub fn start() -> Result<(), JsValue> {
     let input_output = output.clone();
     let input_status = status.clone();
     let input_fpu_warning = fpu_warning.clone();
+    let input_binary_byte_count = binary_byte_count.clone();
+    let input_binary_md5 = binary_md5_output.clone();
     let input_url_warning = url_warning.clone();
     let input_storage = storage.clone();
     let input_pending_uri_update = pending_uri_update.clone();
@@ -218,6 +224,8 @@ pub fn start() -> Result<(), JsValue> {
             &input_output,
             &input_status,
             &input_fpu_warning,
+            &input_binary_byte_count,
+            &input_binary_md5,
         );
 
         if let Some((handle, _callback)) = input_pending_uri_update.borrow_mut().take() {
@@ -262,6 +270,8 @@ pub fn start() -> Result<(), JsValue> {
     let offset_output = output.clone();
     let offset_status = status.clone();
     let offset_fpu_warning = fpu_warning.clone();
+    let offset_binary_byte_count = binary_byte_count.clone();
+    let offset_binary_md5 = binary_md5_output.clone();
     let offset_url_warning = url_warning.clone();
     let offset_storage = storage.clone();
     let offset_pending_uri_update = pending_uri_update.clone();
@@ -277,6 +287,8 @@ pub fn start() -> Result<(), JsValue> {
             &offset_output,
             &offset_status,
             &offset_fpu_warning,
+            &offset_binary_byte_count,
+            &offset_binary_md5,
         );
 
         cancel_pending_uri_update(&offset_window, &offset_pending_uri_update);
@@ -318,6 +330,8 @@ pub fn start() -> Result<(), JsValue> {
     let select_output = output.clone();
     let select_status = status.clone();
     let select_fpu_warning = fpu_warning.clone();
+    let select_binary_byte_count = binary_byte_count.clone();
+    let select_binary_md5 = binary_md5_output.clone();
     let select_url_warning = url_warning.clone();
     let select_storage = storage.clone();
     let select_pending_uri_update = pending_uri_update.clone();
@@ -335,6 +349,8 @@ pub fn start() -> Result<(), JsValue> {
             &select_output,
             &select_status,
             &select_fpu_warning,
+            &select_binary_byte_count,
+            &select_binary_md5,
         );
         update_uri(
             &select_window,
@@ -375,6 +391,8 @@ pub fn start() -> Result<(), JsValue> {
     let clear_output = output.clone();
     let clear_status = status.clone();
     let clear_fpu_warning = fpu_warning.clone();
+    let clear_binary_byte_count = binary_byte_count.clone();
+    let clear_binary_md5 = binary_md5_output.clone();
     let clear_url_warning = url_warning.clone();
     let clear_storage = storage.clone();
     let clear_pending_uri_update = pending_uri_update.clone();
@@ -391,6 +409,8 @@ pub fn start() -> Result<(), JsValue> {
             &clear_output,
             &clear_status,
             &clear_fpu_warning,
+            &clear_binary_byte_count,
+            &clear_binary_md5,
         );
         update_uri(
             &clear_window,
@@ -474,6 +494,8 @@ fn update_output(
     output: &Element,
     status: &HtmlElement,
     fpu_warning: &HtmlElement,
+    binary_byte_count: &HtmlElement,
+    binary_md5_output: &HtmlElement,
 ) {
     let supports_32_bit_segments = cpu.value() == "intel80386";
     fpu_warning.set_hidden(!supports_32_bit_segments);
@@ -482,7 +504,20 @@ fn update_output(
     if !supports_32_bit_segments {
         segment_size.set_value("16");
     }
-    match disassemble(&input.value(), &cpu.value(), &segment_size.value(), &offset.value()) {
+    let result = match parse_hex(&input.value()) {
+        Ok(bytes) => {
+            binary_byte_count.set_text_content(Some(&bytes.len().to_string()));
+            binary_md5_output.set_text_content(Some(&binary_md5(&bytes)));
+            disassemble_bytes(&bytes, &cpu.value(), &segment_size.value(), &offset.value())
+        }
+        Err(error) => {
+            binary_byte_count.set_text_content(Some("—"));
+            binary_md5_output.set_text_content(Some("—"));
+            Err(error)
+        }
+    };
+
+    match result {
         Ok(rows) if rows.is_empty() => {
             output.set_text_content(None);
             append_message_row(document, output, "Enter hexadecimal machine code above.", "empty-row");

@@ -270,6 +270,32 @@ textarea {
   line-height: 1.5;
 }
 
+.binary-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.25rem;
+  padding: .45rem .7rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: .75rem;
+}
+
+.binary-info-label {
+  margin-right: .35rem;
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.binary-info .mono {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .offset-input {
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   text-transform: uppercase;

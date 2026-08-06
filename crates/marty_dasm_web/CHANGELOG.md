@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Display the parsed byte count and MD5 hash beneath the machine-code input.
+
+### Changed
+
+- Reuse a persistent decoder while disassembling, with byte-wise seeking for error recovery.
+
 ## 1.0.2 - 2026-08-05
 
 ### Changed

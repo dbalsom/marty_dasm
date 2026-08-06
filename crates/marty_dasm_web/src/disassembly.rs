@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Daniel Balsom
 
 use marty_dasm::{format_instruction, CpuType, Decoder, DecoderOptions, FormatOptions, SegmentSize};
-use std::fmt;
+use std::{fmt, io::Cursor};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum WebCpu {
@@ -113,6 +113,10 @@ pub(crate) fn parse_hex(input: &str) -> Result<Vec<u8>, DisassemblyError> {
     Ok(bytes)
 }
 
+pub(crate) fn binary_md5(bytes: &[u8]) -> String {
+    format!("{:x}", md5::compute(bytes))
+}
+
 pub(crate) fn disassemble(
     input: &str,
     cpu_value: &str,
@@ -120,23 +124,40 @@ pub(crate) fn disassemble(
     offset_value: &str,
 ) -> Result<Vec<DisassemblyRow>, DisassemblyError> {
     let bytes = parse_hex(input)?;
+    disassemble_bytes(&bytes, cpu_value, segment_size_value, offset_value)
+}
+
+pub(crate) fn disassemble_bytes(
+    bytes: &[u8],
+    cpu_value: &str,
+    segment_size_value: &str,
+    offset_value: &str,
+) -> Result<Vec<DisassemblyRow>, DisassemblyError> {
     if bytes.is_empty() {
         return Ok(Vec::new());
     }
 
     let options = WebCpu::parse(cpu_value)?.decoder_options(segment_size_value)?;
     let base_offset = parse_offset(offset_value)?;
+    let mut decoder = Decoder::new(Cursor::new(bytes), options);
     let mut offset = 0usize;
     let mut rows = Vec::new();
 
     while offset < bytes.len() {
-        let mut decoder = Decoder::new(&bytes[offset..], options);
         match decoder.decode_next() {
             Ok(instruction) => {
                 let consumed = instruction.instruction_bytes.len();
                 if consumed == 0 {
                     return Err(DisassemblyError::Message(format!(
                         "Decoder made no progress at offset {offset:04X}."
+                    )));
+                }
+                let next_offset = usize::try_from(decoder.position()).map_err(|_| {
+                    DisassemblyError::Message("Decoder position exceeds the platform address space.".to_owned())
+                })?;
+                if next_offset != offset + consumed {
+                    return Err(DisassemblyError::Message(format!(
+                        "Decoder position mismatch at offset {offset:04X}."
                     )));
                 }
                 let encoded = instruction
@@ -159,7 +180,7 @@ pub(crate) fn disassemble(
                     instruction: assembly,
                     is_error: false,
                 });
-                offset += consumed;
+                offset = next_offset;
             }
             Err(error) => {
                 let error_message = if error.is_unexpected_eof() {
@@ -176,6 +197,11 @@ pub(crate) fn disassemble(
                     is_error: true,
                 });
                 offset += 1;
+                decoder.set_position(offset as u64).map_err(|seek_error| {
+                    DisassemblyError::Message(format!(
+                        "Could not recover the decoder at offset {offset:04X}: {seek_error}"
+                    ))
+                })?;
             }
         }
     }
@@ -233,6 +259,14 @@ mod tests {
     }
 
     #[test]
+    fn hashes_the_parsed_binary_bytes() {
+        let bytes = parse_hex("0xB8, 34 12 ; ignored\n90").unwrap();
+        assert_eq!(bytes, [0xB8, 0x34, 0x12, 0x90]);
+        assert_eq!(binary_md5(&bytes), "8b482637c70369dd47d7725f964df219");
+        assert_eq!(binary_md5(&[]), "d41d8cd98f00b204e9800998ecf8427e");
+    }
+
+    #[test]
     fn reports_bad_hex_without_panicking() {
         assert!(matches!(parse_hex("90 nope"), Err(DisassemblyError::Message(_))));
     }
@@ -256,6 +290,17 @@ mod tests {
         let output = disassemble("05", "intel808x", "16", "0").unwrap();
 
         assert_eq!(output[0].instruction, "db 0x05 ; Unexpected EOF");
+    }
+
+    #[test]
+    fn recovers_one_byte_at_a_time_after_a_partial_decode_error() {
+        let output = disassemble("05 34", "intel808x", "16", "0").unwrap();
+
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0].bytes, "05");
+        assert_eq!(output[0].instruction, "db 0x05 ; Unexpected EOF");
+        assert_eq!(output[1].bytes, "34");
+        assert_eq!(output[1].instruction, "db 0x34 ; Unexpected EOF");
     }
 
     #[test]
