@@ -11,6 +11,7 @@ pub(crate) struct QueryOverrides {
     pub(crate) cpu: bool,
     pub(crate) segment_size: bool,
     pub(crate) offset: bool,
+    pub(crate) expand_unicode: bool,
 }
 
 pub(crate) struct QueryState {
@@ -34,6 +35,7 @@ impl QueryState {
             cpu: self.params.get("cpu").is_some(),
             segment_size: self.params.get("segment").is_some(),
             offset: self.params.get("offset").is_some(),
+            expand_unicode: self.params.get("eu").is_some(),
         }
     }
 
@@ -43,6 +45,7 @@ impl QueryState {
         cpu: &HtmlSelectElement,
         segment_size: &HtmlSelectElement,
         offset: &HtmlInputElement,
+        expand_unicode: &HtmlInputElement,
     ) -> Result<(), JsValue> {
         let params = &self.params;
 
@@ -59,11 +62,13 @@ impl QueryState {
         if let Some(value) = params.get("offset") {
             offset.set_value(&value);
         }
+        if let Some(value) = params.get("eu") {
+            expand_unicode.set_checked(value == "1");
+        }
         if let Some(value) = params.get("hex_gz") {
             input.set_value("");
             input.set_value(&decompress_input(&value).map_err(js_error)?);
-        }
-        else if let Some(value) = params.get("hex") {
+        } else if let Some(value) = params.get("hex") {
             input.set_value(&value);
         }
 
@@ -77,15 +82,16 @@ pub(crate) fn update_query(
     cpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
+    expand_unicode: &HtmlInputElement,
 ) -> Result<usize, JsValue> {
     let location = window.location();
     let input_value = input.value();
-    let plain_params = query_params(cpu, segment_size, offset)?;
+    let plain_params = query_params(cpu, segment_size, offset, expand_unicode)?;
     plain_params.set("hex", &input_value);
     let plain_url = query_url(&location, &plain_params)?;
 
     let url = if may_compress_input(&input_value) {
-        let compressed_params = query_params(cpu, segment_size, offset)?;
+        let compressed_params = query_params(cpu, segment_size, offset, expand_unicode)?;
         let compressed_url = compress_input(&input_value)
             .map(|encoded| {
                 compressed_params.set("hex_gz", &encoded);
@@ -94,12 +100,10 @@ pub(crate) fn update_query(
             .map_err(js_error)??;
         if compressed_url.len() < plain_url.len() {
             compressed_url
-        }
-        else {
+        } else {
             plain_url
         }
-    }
-    else {
+    } else {
         plain_url
     };
 
@@ -113,11 +117,13 @@ fn query_params(
     cpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
+    expand_unicode: &HtmlInputElement,
 ) -> Result<UrlSearchParams, JsValue> {
     let params = UrlSearchParams::new()?;
     params.set("cpu", &cpu.value());
     params.set("segment", &segment_size.value());
     params.set("offset", &offset.value());
+    params.set("eu", if expand_unicode.checked() { "1" } else { "0" });
     Ok(params)
 }
 

@@ -76,14 +76,31 @@
     <div class="control-column">
       <div class="control">
         <label for="hex-input">Machine code</label>
-        <textarea id="hex-input" autocomplete="off" spellcheck="false" autofocus>{{ sample_bytes }}</textarea>
-        <aside class="binary-info" aria-label="Parsed binary information" aria-live="polite">
-          <span><span class="binary-info-label">Bytes</span> <output id="binary-byte-count">—</output></span>
-          <span><span class="binary-info-label">MD5</span> <output id="binary-md5" class="mono">—</output></span>
+        <div class="input-editor">
+          <textarea id="hex-input" autocomplete="off" spellcheck="false" autofocus>{{ sample_bytes }}</textarea>
+          <details id="input-menu" class="input-menu">
+            <summary aria-label="Input menu" title="Input menu">
+              <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </summary>
+            <div class="input-menu-panel">
+              <label class="unicode-option"><input id="expand-unicode" type="checkbox"> Expand Unicode as UTF-8</label>
+            </div>
+          </details>
+        </div>
+        <aside class="binary-info" aria-label="Parsed binary information">
+          <div class="binary-stats" aria-live="polite">
+            <span><span class="binary-info-label">Bytes</span> <output id="binary-byte-count">—</output></span>
+            <span><span class="binary-info-label">MD5</span> <output id="binary-md5" class="mono">—</output></span>
+          </div>
         </aside>
         <div class="input-help">
           <p class="hint">Enter hex bytes. Bytes may be contiguous or separated by spaces or commas. <code>0x</code> prefixes are also accepted. Semicolons begin end-of-line comments.</p>
           <div class="input-actions">
+            <button id="compact-input" class="input-button" type="button" title="Remove separators and wrap at 64 hex columns">
+              Compact
+            </button>
             <button id="copy-input" class="input-button" type="button">Copy</button>
             <button id="clear-input" class="input-button" type="button">Clear</button>
           </div>

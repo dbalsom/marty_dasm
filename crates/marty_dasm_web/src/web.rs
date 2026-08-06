@@ -4,22 +4,16 @@
 const URL_WARNING_THRESHOLD: usize = 2_000;
 const URL_LENGTH_WARNING: &str =
     "This share link is longer than 2,000 characters and may not work in all browsers or services.";
+const URI_UPDATE_DELAY_MS: i32 = 500;
 
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     bylines::set_random_byline,
-    disassembly::{binary_md5, disassemble, disassemble_bytes, format_disassembly_text, parse_hex},
+    disassembly::{binary_md5, compact_input, disassemble, disassemble_bytes, format_disassembly_text, parse_input},
     local_storage::{
-        observe_input_height,
-        persist_copy_preferences,
-        persist_disassembly_state,
-        persist_input_height,
-        persist_theme,
-        restore_copy_preferences,
-        restore_disassembly_state,
-        restore_input_height,
-        restore_theme,
+        observe_input_height, persist_copy_preferences, persist_disassembly_state, persist_input_height, persist_theme,
+        restore_copy_preferences, restore_disassembly_state, restore_input_height, restore_theme,
         RestoreDisassemblyStateOptions,
     },
     panic_report::install_panic_hook,
@@ -30,20 +24,325 @@ use crate::{
 use wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{
-    Document,
-    Element,
-    Event,
-    HtmlElement,
-    HtmlInputElement,
-    HtmlOptionElement,
-    HtmlSelectElement,
-    HtmlTextAreaElement,
-    Storage,
-    Window,
+    Document, Element, Event, EventTarget, HtmlElement, HtmlInputElement, HtmlOptionElement, HtmlSelectElement,
+    HtmlTextAreaElement, Storage, Window,
 };
 
-const URI_UPDATE_DELAY_MS: i32 = 500;
-type PendingUriUpdate = Rc<RefCell<Option<(i32, Closure<dyn FnMut()>)>>>;
+type PendingUriUpdate = RefCell<Option<(i32, Closure<dyn FnMut()>)>>;
+
+struct Ui {
+    document_root: Element,
+    share_link: HtmlElement,
+    theme_toggle: HtmlElement,
+    input: HtmlTextAreaElement,
+    binary_byte_count: HtmlElement,
+    binary_md5: HtmlElement,
+    copy_input: HtmlElement,
+    clear_input: HtmlElement,
+    compact_input: HtmlElement,
+    cpu: HtmlSelectElement,
+    segment_size: HtmlSelectElement,
+    segment_size_32: HtmlOptionElement,
+    offset: HtmlInputElement,
+    expand_unicode: HtmlInputElement,
+    output: Element,
+    status: HtmlElement,
+    url_warning: HtmlElement,
+    fpu_warning: HtmlElement,
+    copy_offsets: HtmlInputElement,
+    copy_bytes: HtmlInputElement,
+    copy_disassembly: HtmlElement,
+}
+
+impl Ui {
+    fn from_document(document: &Document) -> Result<Self, JsValue> {
+        Ok(Self {
+            document_root: document.document_element().ok_or("document root is unavailable")?,
+            share_link: element(document, "share-link")?,
+            theme_toggle: element(document, "theme-toggle")?,
+            input: element(document, "hex-input")?,
+            binary_byte_count: element(document, "binary-byte-count")?,
+            binary_md5: element(document, "binary-md5")?,
+            copy_input: element(document, "copy-input")?,
+            clear_input: element(document, "clear-input")?,
+            compact_input: element(document, "compact-input")?,
+            cpu: element(document, "cpu-select")?,
+            segment_size: element(document, "segment-size-select")?,
+            segment_size_32: element(document, "segment-size-32")?,
+            offset: element(document, "offset-input")?,
+            expand_unicode: element(document, "expand-unicode")?,
+            output: element(document, "disassembly-output")?,
+            status: element(document, "status")?,
+            url_warning: element(document, "url-warning")?,
+            fpu_warning: element(document, "fpu-warning")?,
+            copy_offsets: element(document, "copy-offsets")?,
+            copy_bytes: element(document, "copy-bytes")?,
+            copy_disassembly: element(document, "copy-disassembly")?,
+        })
+    }
+}
+
+struct App {
+    window: Window,
+    document: Document,
+    storage: Option<Storage>,
+    ui: Ui,
+    pending_uri_update: PendingUriUpdate,
+}
+
+impl App {
+    fn new(window: Window, document: Document, storage: Option<Storage>, ui: Ui) -> Self {
+        Self {
+            window,
+            document,
+            storage,
+            ui,
+            pending_uri_update: RefCell::new(None),
+        }
+    }
+
+    fn toggle_theme(&self) {
+        let next_theme = if self.ui.document_root.get_attribute("data-theme").as_deref() == Some("dark") {
+            "light"
+        } else {
+            "dark"
+        };
+        let _ = apply_theme(&self.ui.document_root, &self.ui.theme_toggle, next_theme);
+        persist_theme(self.storage.as_ref(), next_theme);
+    }
+
+    fn update_output(&self) {
+        let supports_32_bit_segments = self.ui.cpu.value() == "intel80386";
+        self.ui.fpu_warning.set_hidden(!supports_32_bit_segments);
+        self.ui.segment_size_32.set_hidden(!supports_32_bit_segments);
+        self.ui.segment_size_32.set_disabled(!supports_32_bit_segments);
+        if !supports_32_bit_segments {
+            self.ui.segment_size.set_value("16");
+        }
+
+        let result = match parse_input(&self.ui.input.value(), self.ui.expand_unicode.checked()) {
+            Ok(bytes) => {
+                self.ui
+                    .binary_byte_count
+                    .set_text_content(Some(&bytes.len().to_string()));
+                self.ui.binary_md5.set_text_content(Some(&binary_md5(&bytes)));
+                disassemble_bytes(
+                    &bytes,
+                    &self.ui.cpu.value(),
+                    &self.ui.segment_size.value(),
+                    &self.ui.offset.value(),
+                )
+            }
+            Err(error) => {
+                self.ui.binary_byte_count.set_text_content(Some("—"));
+                self.ui.binary_md5.set_text_content(Some("—"));
+                Err(error)
+            }
+        };
+
+        match result {
+            Ok(rows) if rows.is_empty() => {
+                self.ui.output.set_text_content(None);
+                append_message_row(
+                    &self.document,
+                    &self.ui.output,
+                    "Enter hexadecimal machine code above.",
+                    "empty-row",
+                );
+                self.ui.status.set_text_content(Some("Waiting for input"));
+                self.ui.status.set_class_name("status");
+            }
+            Ok(rows) => {
+                self.ui.output.set_text_content(None);
+                let instruction_count = rows.len();
+                let byte_count = rows.iter().map(|row| row.byte_count).sum::<usize>();
+                for row in rows {
+                    let table_row = self.document.create_element("tr").expect("create table row");
+                    if row.is_error {
+                        table_row.set_class_name("decode-error");
+                    }
+                    append_cell(&self.document, &table_row, "th", &row.offset, "offset mono");
+                    append_cell(&self.document, &table_row, "td", &row.bytes, "bytes mono");
+                    append_cell(&self.document, &table_row, "td", &row.instruction, "instruction mono");
+                    self.ui.output.append_child(&table_row).expect("append table row");
+                }
+                self.ui.status.set_text_content(Some(&format!(
+                    "{byte_count} byte{}, {instruction_count} instruction{}",
+                    if byte_count == 1 { "" } else { "s" },
+                    if instruction_count == 1 { "" } else { "s" }
+                )));
+                self.ui.status.set_class_name("status status--ready");
+            }
+            Err(error) if error.is_incomplete_hex_byte() => {
+                self.ui.status.set_text_content(Some("Waiting for another hex digit"));
+                self.ui.status.set_class_name("status status--pending");
+            }
+            Err(error) => {
+                self.ui.output.set_text_content(None);
+                append_message_row(&self.document, &self.ui.output, &error.to_string(), "error-row");
+                self.ui.status.set_text_content(Some("Check the input"));
+                self.ui.status.set_class_name("status status--error");
+            }
+        }
+    }
+
+    fn update_uri(&self) {
+        self.persist_state();
+        self.ui.url_warning.set_text_content(Some(URL_LENGTH_WARNING));
+        if let Ok(url_length) = update_query(
+            &self.window,
+            &self.ui.input,
+            &self.ui.cpu,
+            &self.ui.segment_size,
+            &self.ui.offset,
+            &self.ui.expand_unicode,
+        ) {
+            self.ui.url_warning.set_hidden(url_length <= URL_WARNING_THRESHOLD);
+        }
+    }
+
+    fn persist_state(&self) {
+        persist_disassembly_state(
+            self.storage.as_ref(),
+            &self.ui.input,
+            &self.ui.cpu,
+            &self.ui.segment_size,
+            &self.ui.offset,
+            &self.ui.expand_unicode,
+        );
+    }
+
+    fn cancel_pending_uri_update(&self) {
+        if let Some((handle, _callback)) = self.pending_uri_update.borrow_mut().take() {
+            self.window.clear_timeout_with_handle(handle);
+        }
+    }
+
+    fn schedule_uri_update(self: &Rc<Self>) {
+        self.cancel_pending_uri_update();
+
+        let weak_app = Rc::downgrade(self);
+        let timeout_handler = Closure::<dyn FnMut()>::new(move || {
+            if let Some(app) = weak_app.upgrade() {
+                app.update_uri();
+            }
+        });
+        if let Ok(handle) = self.window.set_timeout_with_callback_and_timeout_and_arguments_0(
+            timeout_handler.as_ref().unchecked_ref(),
+            URI_UPDATE_DELAY_MS,
+        ) {
+            *self.pending_uri_update.borrow_mut() = Some((handle, timeout_handler));
+        }
+    }
+
+    fn input_changed(self: &Rc<Self>) {
+        self.update_output();
+        self.schedule_uri_update();
+    }
+
+    fn offset_changed(self: &Rc<Self>) {
+        normalize_offset_input(&self.ui.offset);
+        self.update_output();
+        self.schedule_uri_update();
+    }
+
+    fn selection_changed(&self) {
+        self.cancel_pending_uri_update();
+        self.update_output();
+        self.update_uri();
+    }
+
+    fn share_link(&self) {
+        self.cancel_pending_uri_update();
+        self.update_uri();
+        if let Ok(url) = self.window.location().href() {
+            self.copy_text(&url);
+        }
+    }
+
+    fn compact_input(self: &Rc<Self>) {
+        let Ok(compacted) = compact_input(&self.ui.input.value(), self.ui.expand_unicode.checked()) else {
+            return;
+        };
+        self.ui.input.set_value(&compacted);
+        self.input_changed();
+    }
+
+    fn copy_input(&self) {
+        self.copy_text(&self.ui.input.value());
+    }
+
+    fn clear_input(&self) {
+        self.cancel_pending_uri_update();
+        self.ui.input.set_value("");
+        self.update_output();
+        self.update_uri();
+        let _ = self.ui.input.focus();
+    }
+
+    fn copy_disassembly(&self) {
+        let rows = match disassemble(
+            &self.ui.input.value(),
+            &self.ui.cpu.value(),
+            &self.ui.segment_size.value(),
+            &self.ui.offset.value(),
+            self.ui.expand_unicode.checked(),
+        ) {
+            Ok(rows) if !rows.is_empty() => rows,
+            _ => return,
+        };
+        let text = format_disassembly_text(&rows, self.ui.copy_offsets.checked(), self.ui.copy_bytes.checked());
+        self.copy_text(&text);
+    }
+
+    fn persist_copy_preferences(&self) {
+        persist_copy_preferences(self.storage.as_ref(), &self.ui.copy_offsets, &self.ui.copy_bytes);
+    }
+
+    fn persist_page_state(&self) {
+        self.persist_state();
+        persist_input_height(self.storage.as_ref(), &self.ui.input);
+    }
+
+    fn copy_text(&self, text: &str) {
+        let write = self.window.navigator().clipboard().write_text(text);
+        spawn_local(async move {
+            let _ = JsFuture::from(write).await;
+        });
+    }
+
+    fn render_raw_output(&self, body: &HtmlElement, restore_error: Option<JsValue>) -> Result<(), JsValue> {
+        if self.ui.cpu.value() != "intel80386" {
+            self.ui.segment_size.set_value("16");
+        }
+        let text = if let Some(error) = restore_error {
+            format!(
+                "error: {}",
+                error.as_string().unwrap_or_else(|| "invalid shared input".to_owned())
+            )
+        } else {
+            match disassemble(
+                &self.ui.input.value(),
+                &self.ui.cpu.value(),
+                &self.ui.segment_size.value(),
+                &self.ui.offset.value(),
+                self.ui.expand_unicode.checked(),
+            ) {
+                Ok(rows) => format_disassembly_text(&rows, true, true),
+                Err(error) => format!("error: {error}"),
+            }
+        };
+
+        body.set_inner_html("");
+        body.set_class_name("raw-page");
+        let output = self.document.create_element("pre")?;
+        output.set_id("raw-output");
+        output.set_class_name("raw-output");
+        output.set_text_content(Some(&text));
+        body.append_child(&output)?;
+        Ok(())
+    }
+}
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
@@ -57,556 +356,112 @@ pub fn start() -> Result<(), JsValue> {
     body.set_inner_html(&render_app().map_err(js_error)?);
     set_random_byline(&window, &document)?;
 
-    let document_root = document.document_element().ok_or("document root is unavailable")?;
-    let share_link = element::<HtmlElement>(&document, "share-link")?;
-    let theme_toggle = element::<HtmlElement>(&document, "theme-toggle")?;
     let storage = window.local_storage()?;
+    let ui = Ui::from_document(&document)?;
+    let app = Rc::new(App::new(window, document, storage, ui));
 
-    // Get the initial dark/light theme from local storage or the user's system preference.
-    let initial_theme = restore_theme(storage.as_ref()).unwrap_or_else(|| {
-        let prefers_dark = window
+    let initial_theme = restore_theme(app.storage.as_ref()).unwrap_or_else(|| {
+        let prefers_dark = app
+            .window
             .match_media("(prefers-color-scheme: dark)")
             .ok()
             .flatten()
             .is_some_and(|query| query.matches());
         if prefers_dark { "dark" } else { "light" }.to_owned()
     });
+    apply_theme(&app.ui.document_root, &app.ui.theme_toggle, &initial_theme)?;
 
-    apply_theme(&document_root, &theme_toggle, &initial_theme)?;
-
-    let theme_root = document_root.clone();
-    let theme_button = theme_toggle.clone();
-    let theme_storage = storage.clone();
-    let theme_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        let next_theme = if theme_root.get_attribute("data-theme").as_deref() == Some("dark") {
-            "light"
-        }
-        else {
-            "dark"
-        };
-        let _ = apply_theme(&theme_root, &theme_button, next_theme);
-        persist_theme(theme_storage.as_ref(), next_theme);
-    });
-    theme_toggle.add_event_listener_with_callback("click", theme_handler.as_ref().unchecked_ref())?;
-    theme_handler.forget();
-
-    let input = element::<HtmlTextAreaElement>(&document, "hex-input")?;
-    let binary_byte_count = element::<HtmlElement>(&document, "binary-byte-count")?;
-    let binary_md5_output = element::<HtmlElement>(&document, "binary-md5")?;
-    let copy_hex_input = element::<HtmlElement>(&document, "copy-input")?;
-    let clear_input = element::<HtmlElement>(&document, "clear-input")?;
-    let cpu = element::<HtmlSelectElement>(&document, "cpu-select")?;
-    let segment_size = element::<HtmlSelectElement>(&document, "segment-size-select")?;
-    let segment_size_32 = element::<HtmlOptionElement>(&document, "segment-size-32")?;
-    let offset = element::<HtmlInputElement>(&document, "offset-input")?;
-    let output = element::<Element>(&document, "disassembly-output")?;
-    let status = element::<HtmlElement>(&document, "status")?;
-    let url_warning = element::<HtmlElement>(&document, "url-warning")?;
-    let fpu_warning = element::<HtmlElement>(&document, "fpu-warning")?;
-    let copy_offsets = element::<HtmlInputElement>(&document, "copy-offsets")?;
-    let copy_bytes = element::<HtmlInputElement>(&document, "copy-bytes")?;
-    let copy_disassembly = element::<HtmlElement>(&document, "copy-disassembly")?;
-
-    // Raw output ignores localstorage
     if !raw_requested {
         let query_overrides = query_state.overrides();
         restore_disassembly_state(
-            storage.as_ref(),
-            &input,
-            &cpu,
-            &segment_size,
-            &offset,
+            app.storage.as_ref(),
+            &app.ui.input,
+            &app.ui.cpu,
+            &app.ui.segment_size,
+            &app.ui.offset,
+            &app.ui.expand_unicode,
             RestoreDisassemblyStateOptions {
                 input: !query_overrides.input,
                 cpu: !query_overrides.cpu,
                 segment_size: !query_overrides.segment_size,
                 offset: !query_overrides.offset,
+                expand_unicode: !query_overrides.expand_unicode,
             },
         );
-        restore_copy_preferences(storage.as_ref(), &copy_offsets, &copy_bytes);
-        restore_input_height(storage.as_ref(), &input);
+        restore_copy_preferences(app.storage.as_ref(), &app.ui.copy_offsets, &app.ui.copy_bytes);
+        restore_input_height(app.storage.as_ref(), &app.ui.input);
     }
-    let restore_error = query_state.restore(&input, &cpu, &segment_size, &offset).err();
+
+    let restore_error = query_state
+        .restore(
+            &app.ui.input,
+            &app.ui.cpu,
+            &app.ui.segment_size,
+            &app.ui.offset,
+            &app.ui.expand_unicode,
+        )
+        .err();
     if raw_requested {
-        render_raw_output(&document, &body, &input, &cpu, &segment_size, &offset, restore_error)?;
+        app.render_raw_output(&body, restore_error)?;
         return Ok(());
     }
 
-    observe_input_height(storage.clone(), &input)?;
+    observe_input_height(app.storage.clone(), &app.ui.input)?;
+    app.update_output();
+    app.update_uri();
 
-    update_output(
-        &document,
-        &input,
-        &cpu,
-        &segment_size,
-        &offset,
-        &segment_size_32,
-        &output,
-        &status,
-        &fpu_warning,
-        &binary_byte_count,
-        &binary_md5_output,
-    );
-
-    update_uri(
-        &window,
-        storage.as_ref(),
-        &input,
-        &cpu,
-        &segment_size,
-        &offset,
-        &url_warning,
-    );
-
-    // something went wrong restoring uri from localstorage
     if let Some(error) = restore_error {
-        url_warning.set_text_content(Some(&format!(
+        app.ui.url_warning.set_text_content(Some(&format!(
             "Could not restore this share link: {}",
             error.as_string().unwrap_or_default()
         )));
-        url_warning.set_hidden(false);
+        app.ui.url_warning.set_hidden(false);
     }
 
-    let pending_uri_update: PendingUriUpdate = Rc::new(RefCell::new(None));
-
-    let share_window = window.clone();
-    let share_input = input.clone();
-    let share_cpu = cpu.clone();
-    let share_segment_size = segment_size.clone();
-    let share_offset = offset.clone();
-    let share_url_warning = url_warning.clone();
-    let share_storage = storage.clone();
-    let share_pending_uri_update = pending_uri_update.clone();
-    let share_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        cancel_pending_uri_update(&share_window, &share_pending_uri_update);
-        update_uri(
-            &share_window,
-            share_storage.as_ref(),
-            &share_input,
-            &share_cpu,
-            &share_segment_size,
-            &share_offset,
-            &share_url_warning,
-        );
-        if let Ok(url) = share_window.location().href() {
-            let write = share_window.navigator().clipboard().write_text(&url);
-            spawn_local(async move {
-                let _ = JsFuture::from(write).await;
-            });
-        }
-    });
-    share_link.add_event_listener_with_callback("click", share_handler.as_ref().unchecked_ref())?;
-    share_handler.forget();
-
-    let input_document = document.clone();
-    let input_window = window.clone();
-    let input_control = input.clone();
-    let input_cpu = cpu.clone();
-    let input_segment_size = segment_size.clone();
-    let input_offset = offset.clone();
-    let input_segment_size_32 = segment_size_32.clone();
-    let input_output = output.clone();
-    let input_status = status.clone();
-    let input_fpu_warning = fpu_warning.clone();
-    let input_binary_byte_count = binary_byte_count.clone();
-    let input_binary_md5 = binary_md5_output.clone();
-    let input_url_warning = url_warning.clone();
-    let input_storage = storage.clone();
-    let input_pending_uri_update = pending_uri_update.clone();
-    let input_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        update_output(
-            &input_document,
-            &input_control,
-            &input_cpu,
-            &input_segment_size,
-            &input_offset,
-            &input_segment_size_32,
-            &input_output,
-            &input_status,
-            &input_fpu_warning,
-            &input_binary_byte_count,
-            &input_binary_md5,
-        );
-
-        if let Some((handle, _callback)) = input_pending_uri_update.borrow_mut().take() {
-            input_window.clear_timeout_with_handle(handle);
-        }
-
-        let timeout_window = input_window.clone();
-        let timeout_input = input_control.clone();
-        let timeout_cpu = input_cpu.clone();
-        let timeout_segment_size = input_segment_size.clone();
-        let timeout_offset = input_offset.clone();
-        let timeout_url_warning = input_url_warning.clone();
-        let timeout_storage = input_storage.clone();
-        let timeout_handler = Closure::<dyn FnMut()>::new(move || {
-            update_uri(
-                &timeout_window,
-                timeout_storage.as_ref(),
-                &timeout_input,
-                &timeout_cpu,
-                &timeout_segment_size,
-                &timeout_offset,
-                &timeout_url_warning,
-            );
-        });
-        if let Ok(handle) = input_window.set_timeout_with_callback_and_timeout_and_arguments_0(
-            timeout_handler.as_ref().unchecked_ref(),
-            URI_UPDATE_DELAY_MS,
-        ) {
-            *input_pending_uri_update.borrow_mut() = Some((handle, timeout_handler));
-        }
-    });
-    input.add_event_listener_with_callback("input", input_handler.as_ref().unchecked_ref())?;
-    input_handler.forget();
-
-    let offset_document = document.clone();
-    let offset_window = window.clone();
-    let offset_input = input.clone();
-    let offset_cpu = cpu.clone();
-    let offset_segment_size = segment_size.clone();
-    let offset_segment_size_32 = segment_size_32.clone();
-    let offset_control = offset.clone();
-    let offset_output = output.clone();
-    let offset_status = status.clone();
-    let offset_fpu_warning = fpu_warning.clone();
-    let offset_binary_byte_count = binary_byte_count.clone();
-    let offset_binary_md5 = binary_md5_output.clone();
-    let offset_url_warning = url_warning.clone();
-    let offset_storage = storage.clone();
-    let offset_pending_uri_update = pending_uri_update.clone();
-    let offset_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        normalize_offset_input(&offset_control);
-        update_output(
-            &offset_document,
-            &offset_input,
-            &offset_cpu,
-            &offset_segment_size,
-            &offset_control,
-            &offset_segment_size_32,
-            &offset_output,
-            &offset_status,
-            &offset_fpu_warning,
-            &offset_binary_byte_count,
-            &offset_binary_md5,
-        );
-
-        cancel_pending_uri_update(&offset_window, &offset_pending_uri_update);
-        let timeout_window = offset_window.clone();
-        let timeout_input = offset_input.clone();
-        let timeout_cpu = offset_cpu.clone();
-        let timeout_segment_size = offset_segment_size.clone();
-        let timeout_offset = offset_control.clone();
-        let timeout_url_warning = offset_url_warning.clone();
-        let timeout_storage = offset_storage.clone();
-        let timeout_handler = Closure::<dyn FnMut()>::new(move || {
-            update_uri(
-                &timeout_window,
-                timeout_storage.as_ref(),
-                &timeout_input,
-                &timeout_cpu,
-                &timeout_segment_size,
-                &timeout_offset,
-                &timeout_url_warning,
-            );
-        });
-        if let Ok(handle) = offset_window.set_timeout_with_callback_and_timeout_and_arguments_0(
-            timeout_handler.as_ref().unchecked_ref(),
-            URI_UPDATE_DELAY_MS,
-        ) {
-            *offset_pending_uri_update.borrow_mut() = Some((handle, timeout_handler));
-        }
-    });
-    offset.add_event_listener_with_callback("input", offset_handler.as_ref().unchecked_ref())?;
-    offset_handler.forget();
-
-    let select_document = document.clone();
-    let select_window = window.clone();
-    let select_input = input.clone();
-    let select_cpu = cpu.clone();
-    let select_segment_size = segment_size.clone();
-    let select_offset = offset.clone();
-    let select_segment_size_32 = segment_size_32.clone();
-    let select_output = output.clone();
-    let select_status = status.clone();
-    let select_fpu_warning = fpu_warning.clone();
-    let select_binary_byte_count = binary_byte_count.clone();
-    let select_binary_md5 = binary_md5_output.clone();
-    let select_url_warning = url_warning.clone();
-    let select_storage = storage.clone();
-    let select_pending_uri_update = pending_uri_update.clone();
-    let select_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        if let Some((handle, _callback)) = select_pending_uri_update.borrow_mut().take() {
-            select_window.clear_timeout_with_handle(handle);
-        }
-        update_output(
-            &select_document,
-            &select_input,
-            &select_cpu,
-            &select_segment_size,
-            &select_offset,
-            &select_segment_size_32,
-            &select_output,
-            &select_status,
-            &select_fpu_warning,
-            &select_binary_byte_count,
-            &select_binary_md5,
-        );
-        update_uri(
-            &select_window,
-            select_storage.as_ref(),
-            &select_input,
-            &select_cpu,
-            &select_segment_size,
-            &select_offset,
-            &select_url_warning,
-        );
-    });
-    let select_callback = select_handler.as_ref().unchecked_ref();
-    cpu.add_event_listener_with_callback("change", select_callback)?;
-    segment_size.add_event_listener_with_callback("change", select_callback)?;
-    select_handler.forget();
-
-    let copy_hex_window = window.clone();
-    let copy_hex_control = input.clone();
-    let copy_hex_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        let write = copy_hex_window
-            .navigator()
-            .clipboard()
-            .write_text(&copy_hex_control.value());
-        spawn_local(async move {
-            let _ = JsFuture::from(write).await;
-        });
-    });
-    copy_hex_input.add_event_listener_with_callback("click", copy_hex_handler.as_ref().unchecked_ref())?;
-    copy_hex_handler.forget();
-
-    let clear_document = document.clone();
-    let clear_window = window.clone();
-    let clear_input_control = input.clone();
-    let clear_cpu = cpu.clone();
-    let clear_segment_size = segment_size.clone();
-    let clear_offset = offset.clone();
-    let clear_segment_size_32 = segment_size_32.clone();
-    let clear_output = output.clone();
-    let clear_status = status.clone();
-    let clear_fpu_warning = fpu_warning.clone();
-    let clear_binary_byte_count = binary_byte_count.clone();
-    let clear_binary_md5 = binary_md5_output.clone();
-    let clear_url_warning = url_warning.clone();
-    let clear_storage = storage.clone();
-    let clear_pending_uri_update = pending_uri_update.clone();
-    let clear_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        cancel_pending_uri_update(&clear_window, &clear_pending_uri_update);
-        clear_input_control.set_value("");
-        update_output(
-            &clear_document,
-            &clear_input_control,
-            &clear_cpu,
-            &clear_segment_size,
-            &clear_offset,
-            &clear_segment_size_32,
-            &clear_output,
-            &clear_status,
-            &clear_fpu_warning,
-            &clear_binary_byte_count,
-            &clear_binary_md5,
-        );
-        update_uri(
-            &clear_window,
-            clear_storage.as_ref(),
-            &clear_input_control,
-            &clear_cpu,
-            &clear_segment_size,
-            &clear_offset,
-            &clear_url_warning,
-        );
-        let _ = clear_input_control.focus();
-    });
-    clear_input.add_event_listener_with_callback("click", clear_handler.as_ref().unchecked_ref())?;
-    clear_handler.forget();
-
-    let copy_window = window.clone();
-    let copy_input = input.clone();
-    let copy_cpu = cpu.clone();
-    let copy_segment_size = segment_size.clone();
-    let copy_offset = offset.clone();
-    let copy_handler_offsets = copy_offsets.clone();
-    let copy_handler_bytes = copy_bytes.clone();
-    let copy_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        let rows = match disassemble(
-            &copy_input.value(),
-            &copy_cpu.value(),
-            &copy_segment_size.value(),
-            &copy_offset.value(),
-        ) {
-            Ok(rows) if !rows.is_empty() => rows,
-            _ => return,
-        };
-        let text = format_disassembly_text(&rows, copy_handler_offsets.checked(), copy_handler_bytes.checked());
-        let write = copy_window.navigator().clipboard().write_text(&text);
-        spawn_local(async move {
-            let _ = JsFuture::from(write).await;
-        });
-    });
-    copy_disassembly.add_event_listener_with_callback("click", copy_handler.as_ref().unchecked_ref())?;
-    copy_handler.forget();
-
-    let preference_storage = storage.clone();
-    let preference_offsets = copy_offsets.clone();
-    let preference_bytes = copy_bytes.clone();
-    let preference_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        persist_copy_preferences(preference_storage.as_ref(), &preference_offsets, &preference_bytes);
-    });
-    let preference_callback = preference_handler.as_ref().unchecked_ref();
-    copy_offsets.add_event_listener_with_callback("change", preference_callback)?;
-    copy_bytes.add_event_listener_with_callback("change", preference_callback)?;
-    preference_handler.forget();
-
-    let pagehide_storage = storage.clone();
-    let pagehide_input = input.clone();
-    let pagehide_cpu = cpu.clone();
-    let pagehide_segment_size = segment_size.clone();
-    let pagehide_offset = offset.clone();
-    let pagehide_handler = Closure::<dyn FnMut(Event)>::new(move |_event| {
-        persist_disassembly_state(
-            pagehide_storage.as_ref(),
-            &pagehide_input,
-            &pagehide_cpu,
-            &pagehide_segment_size,
-            &pagehide_offset,
-        );
-        persist_input_height(pagehide_storage.as_ref(), &pagehide_input);
-    });
-    window.add_event_listener_with_callback("pagehide", pagehide_handler.as_ref().unchecked_ref())?;
-    pagehide_handler.forget();
-
+    install_event_handlers(&app)?;
     Ok(())
 }
 
-fn update_output(
-    document: &Document,
-    input: &HtmlTextAreaElement,
-    cpu: &HtmlSelectElement,
-    segment_size: &HtmlSelectElement,
-    offset: &HtmlInputElement,
-    segment_size_32: &HtmlOptionElement,
-    output: &Element,
-    status: &HtmlElement,
-    fpu_warning: &HtmlElement,
-    binary_byte_count: &HtmlElement,
-    binary_md5_output: &HtmlElement,
-) {
-    let supports_32_bit_segments = cpu.value() == "intel80386";
-    fpu_warning.set_hidden(!supports_32_bit_segments);
-    segment_size_32.set_hidden(!supports_32_bit_segments);
-    segment_size_32.set_disabled(!supports_32_bit_segments);
-    if !supports_32_bit_segments {
-        segment_size.set_value("16");
-    }
-    let result = match parse_hex(&input.value()) {
-        Ok(bytes) => {
-            binary_byte_count.set_text_content(Some(&bytes.len().to_string()));
-            binary_md5_output.set_text_content(Some(&binary_md5(&bytes)));
-            disassemble_bytes(&bytes, &cpu.value(), &segment_size.value(), &offset.value())
-        }
-        Err(error) => {
-            binary_byte_count.set_text_content(Some("—"));
-            binary_md5_output.set_text_content(Some("—"));
-            Err(error)
-        }
-    };
-
-    match result {
-        Ok(rows) if rows.is_empty() => {
-            output.set_text_content(None);
-            append_message_row(document, output, "Enter hexadecimal machine code above.", "empty-row");
-            status.set_text_content(Some("Waiting for input"));
-            status.set_class_name("status");
-        }
-        Ok(rows) => {
-            output.set_text_content(None);
-            let instruction_count = rows.len();
-            let byte_count = rows.iter().map(|row| row.byte_count).sum::<usize>();
-            for row in rows {
-                let table_row = document.create_element("tr").expect("create table row");
-                if row.is_error {
-                    table_row.set_class_name("decode-error");
-                }
-                append_cell(document, &table_row, "th", &row.offset, "offset mono");
-                append_cell(document, &table_row, "td", &row.bytes, "bytes mono");
-                append_cell(document, &table_row, "td", &row.instruction, "instruction mono");
-                output.append_child(&table_row).expect("append table row");
-            }
-            status.set_text_content(Some(&format!(
-                "{byte_count} byte{}, {instruction_count} instruction{}",
-                if byte_count == 1 { "" } else { "s" },
-                if instruction_count == 1 { "" } else { "s" }
-            )));
-            status.set_class_name("status status--ready");
-        }
-        Err(error) if error.is_incomplete_hex_byte() => {
-            status.set_text_content(Some("Waiting for another hex digit"));
-            status.set_class_name("status status--pending");
-        }
-        Err(error) => {
-            output.set_text_content(None);
-            append_message_row(document, output, &error.to_string(), "error-row");
-            status.set_text_content(Some("Check the input"));
-            status.set_class_name("status status--error");
-        }
-    }
-}
-
-fn render_raw_output(
-    document: &Document,
-    body: &HtmlElement,
-    input: &HtmlTextAreaElement,
-    cpu: &HtmlSelectElement,
-    segment_size: &HtmlSelectElement,
-    offset: &HtmlInputElement,
-    restore_error: Option<JsValue>,
-) -> Result<(), JsValue> {
-    if cpu.value() != "intel80386" {
-        segment_size.set_value("16");
-    }
-    let text = if let Some(error) = restore_error {
-        format!(
-            "error: {}",
-            error.as_string().unwrap_or_else(|| "invalid shared input".to_owned())
-        )
-    }
-    else {
-        match disassemble(&input.value(), &cpu.value(), &segment_size.value(), &offset.value()) {
-            Ok(rows) => format_disassembly_text(&rows, true, true),
-            Err(error) => format!("error: {error}"),
-        }
-    };
-
-    body.set_inner_html("");
-    body.set_class_name("raw-page");
-    let output = document.create_element("pre")?;
-    output.set_id("raw-output");
-    output.set_class_name("raw-output");
-    output.set_text_content(Some(&text));
-    body.append_child(&output)?;
+fn install_event_handlers(app: &Rc<App>) -> Result<(), JsValue> {
+    listen(&app.ui.theme_toggle, "click", app, |app, _event| app.toggle_theme())?;
+    listen(&app.ui.share_link, "click", app, |app, _event| app.share_link())?;
+    listen(&app.ui.input, "input", app, |app, _event| app.input_changed())?;
+    listen(&app.ui.compact_input, "click", app, |app, _event| app.compact_input())?;
+    listen(&app.ui.offset, "input", app, |app, _event| app.offset_changed())?;
+    listen(&app.ui.cpu, "change", app, |app, _event| app.selection_changed())?;
+    listen(&app.ui.segment_size, "change", app, |app, _event| {
+        app.selection_changed()
+    })?;
+    listen(&app.ui.expand_unicode, "change", app, |app, _event| {
+        app.selection_changed()
+    })?;
+    listen(&app.ui.copy_input, "click", app, |app, _event| app.copy_input())?;
+    listen(&app.ui.clear_input, "click", app, |app, _event| app.clear_input())?;
+    listen(&app.ui.copy_disassembly, "click", app, |app, _event| {
+        app.copy_disassembly()
+    })?;
+    listen(&app.ui.copy_offsets, "change", app, |app, _event| {
+        app.persist_copy_preferences()
+    })?;
+    listen(&app.ui.copy_bytes, "change", app, |app, _event| {
+        app.persist_copy_preferences()
+    })?;
+    listen(&app.window, "pagehide", app, |app, _event| app.persist_page_state())?;
     Ok(())
 }
 
-fn update_uri(
-    window: &Window,
-    storage: Option<&Storage>,
-    input: &HtmlTextAreaElement,
-    cpu: &HtmlSelectElement,
-    segment_size: &HtmlSelectElement,
-    offset: &HtmlInputElement,
-    url_warning: &HtmlElement,
-) {
-    persist_disassembly_state(storage, input, cpu, segment_size, offset);
-    url_warning.set_text_content(Some(URL_LENGTH_WARNING));
-    if let Ok(url_length) = update_query(window, input, cpu, segment_size, offset) {
-        url_warning.set_hidden(url_length <= URL_WARNING_THRESHOLD);
-    }
+fn listen<T, F>(target: &T, event_type: &str, app: &Rc<App>, mut handler: F) -> Result<(), JsValue>
+where
+    T: AsRef<EventTarget>,
+    F: FnMut(&Rc<App>, Event) + 'static,
+{
+    let app = Rc::clone(app);
+    let callback = Closure::<dyn FnMut(Event)>::new(move |event| handler(&app, event));
+    target
+        .as_ref()
+        .add_event_listener_with_callback(event_type, callback.as_ref().unchecked_ref())?;
+    callback.forget();
+    Ok(())
 }
 
 fn normalize_offset_input(input: &HtmlInputElement) {
@@ -619,12 +474,6 @@ fn normalize_offset_input(input: &HtmlInputElement) {
         .collect::<String>();
     if normalized != input.value() {
         input.set_value(&normalized);
-    }
-}
-
-fn cancel_pending_uri_update(window: &Window, pending: &PendingUriUpdate) {
-    if let Some((handle, _callback)) = pending.borrow_mut().take() {
-        window.clear_timeout_with_handle(handle);
     }
 }
 
@@ -652,8 +501,7 @@ fn apply_theme(document_root: &Element, button: &HtmlElement, theme: &str) -> Re
     document_root.set_attribute("data-theme", theme)?;
     let label = if theme == "dark" {
         "Switch to light mode"
-    }
-    else {
+    } else {
         "Switch to dark mode"
     };
     button.set_attribute("aria-label", label)?;

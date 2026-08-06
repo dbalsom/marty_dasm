@@ -17,6 +17,7 @@ const BYLINES: &[&str] = &[
     "That can't be right, surely?",
     "Lost in the code forest again.",
     "Not written by the NSA.",
+    "The only disassembler with Emoji support.",
 ];
 
 pub(crate) fn set_random_byline(window: &Window, document: &Document) -> Result<(), JsValue> {

@@ -1,13 +1,14 @@
 # Changelog
 
-## Unreleased
-
-### Added
-
-- Display the parsed byte count and MD5 hash beneath the machine-code input.
+## 1.0.3 - 2026-08-06
 
 ### Changed
 
+- Refactored app logic
+- Updated `marty_dasm` to version 0.3.5
+- Display the parsed byte count and MD5 hash beneath the machine-code input.
+- Optionally expand non-ASCII Unicode input into its UTF-8 byte representation.
+- Add button to compact parsed input into contiguous uppercase hexadecimal
 - Reuse a persistent decoder while disassembling, with byte-wise seeking for error recovery.
 
 ## 1.0.2 - 2026-08-05

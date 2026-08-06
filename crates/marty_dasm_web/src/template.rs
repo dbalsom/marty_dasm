@@ -38,6 +38,9 @@ mod tests {
         assert!(app.contains("id=\"panic-report-prompt\""));
         assert!(app.contains("id=\"binary-byte-count\""));
         assert!(app.contains("id=\"binary-md5\""));
+        assert!(app.contains("id=\"expand-unicode\""));
+        assert!(app.contains("id=\"input-menu\""));
+        assert!(app.contains("id=\"compact-input\""));
         // Please don't point at my repository issues if you fork this.
         assert!(!app.contains("https://github.com/dbalsom/marty_dasm/issues/new"));
     }

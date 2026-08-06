@@ -9,6 +9,7 @@ const CPU_STORAGE_KEY: &str = "marty-cpu";
 const SEGMENT_SIZE_STORAGE_KEY: &str = "marty-segment-size";
 const OFFSET_STORAGE_KEY: &str = "marty-offset";
 const HEX_INPUT_STORAGE_KEY: &str = "marty-hex-input";
+const EXPAND_UNICODE_STORAGE_KEY: &str = "marty-expand-unicode";
 const HEX_INPUT_HEIGHT_STORAGE_KEY: &str = "marty-hex-input-height";
 const COPY_OFFSETS_STORAGE_KEY: &str = "marty-copy-offsets";
 const COPY_BYTES_STORAGE_KEY: &str = "marty-copy-bytes";
@@ -20,6 +21,7 @@ pub(crate) struct RestoreDisassemblyStateOptions {
     pub(crate) cpu: bool,
     pub(crate) segment_size: bool,
     pub(crate) offset: bool,
+    pub(crate) expand_unicode: bool,
 }
 
 pub(crate) fn restore_theme(storage: Option<&Storage>) -> Option<String> {
@@ -40,10 +42,10 @@ pub(crate) fn restore_disassembly_state(
     cpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
+    expand_unicode: &HtmlInputElement,
     options: RestoreDisassemblyStateOptions,
 ) {
-    let Some(storage) = storage
-    else {
+    let Some(storage) = storage else {
         return;
     };
 
@@ -73,6 +75,13 @@ pub(crate) fn restore_disassembly_state(
             }
         }
     }
+    if options.expand_unicode {
+        if let Ok(Some(value)) = storage.get_item(EXPAND_UNICODE_STORAGE_KEY) {
+            if matches!(value.as_str(), "true" | "false") {
+                expand_unicode.set_checked(value == "true");
+            }
+        }
+    }
 }
 
 pub(crate) fn persist_disassembly_state(
@@ -81,9 +90,9 @@ pub(crate) fn persist_disassembly_state(
     cpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
+    expand_unicode: &HtmlInputElement,
 ) {
-    let Some(storage) = storage
-    else {
+    let Some(storage) = storage else {
         return;
     };
 
@@ -91,6 +100,10 @@ pub(crate) fn persist_disassembly_state(
     let _ = storage.set_item(SEGMENT_SIZE_STORAGE_KEY, &segment_size.value());
     let _ = storage.set_item(HEX_INPUT_STORAGE_KEY, &input.value());
     let _ = storage.set_item(OFFSET_STORAGE_KEY, &offset.value());
+    let _ = storage.set_item(
+        EXPAND_UNICODE_STORAGE_KEY,
+        if expand_unicode.checked() { "true" } else { "false" },
+    );
 }
 
 pub(crate) fn restore_copy_preferences(
@@ -98,8 +111,7 @@ pub(crate) fn restore_copy_preferences(
     copy_offsets: &HtmlInputElement,
     copy_bytes: &HtmlInputElement,
 ) {
-    let Some(storage) = storage
-    else {
+    let Some(storage) = storage else {
         return;
     };
 
@@ -120,8 +132,7 @@ pub(crate) fn persist_copy_preferences(
     copy_offsets: &HtmlInputElement,
     copy_bytes: &HtmlInputElement,
 ) {
-    let Some(storage) = storage
-    else {
+    let Some(storage) = storage else {
         return;
     };
 
@@ -136,8 +147,7 @@ pub(crate) fn persist_copy_preferences(
 }
 
 pub(crate) fn restore_input_height(storage: Option<&Storage>, input: &HtmlTextAreaElement) {
-    let Some(storage) = storage
-    else {
+    let Some(storage) = storage else {
         return;
     };
     let height = storage
