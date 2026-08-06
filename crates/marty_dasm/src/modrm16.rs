@@ -188,7 +188,7 @@ impl ModRmByte16 {
     pub fn read(
         bytes: &mut impl ByteReader,
         instruction_bytes: &mut Vec<u8>,
-    ) -> Result<ModRmByte16, Box<dyn std::error::Error>> {
+    ) -> std::io::Result<ModRmByte16> {
         let raw_modrm_byte = bytes.read_u8()?;
         let mut modrm = ModRmByte16::from_byte(raw_modrm_byte);
         instruction_bytes.push(raw_modrm_byte);

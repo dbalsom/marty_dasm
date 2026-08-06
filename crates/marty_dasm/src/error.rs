@@ -24,6 +24,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DecodeError {
+    #[error("End of input")]
+    Eof,
+
+    #[error("Unexpected EOF while decoding an instruction")]
+    UnexpectedEof,
+
     #[error("Invalid options provided: {0}")]
     InvalidOptions(String),
 
@@ -38,7 +44,11 @@ pub enum DecodeError {
 }
 
 impl DecodeError {
+    pub fn is_eof(&self) -> bool {
+        matches!(self, Self::Eof)
+    }
+
     pub fn is_unexpected_eof(&self) -> bool {
-        matches!(self, Self::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof)
+        matches!(self, Self::UnexpectedEof)
     }
 }

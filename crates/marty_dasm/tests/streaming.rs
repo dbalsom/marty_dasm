@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use marty_dasm::{CpuType, Decoder, DecoderOptions, SegmentSize};
+use marty_dasm::{CpuType, DecodeError, Decoder, DecoderOptions, SegmentSize};
 
 fn assert_followed_by_nop(cpu: CpuType, segment_size: SegmentSize, encoded: &[u8], description: &str) {
     let mut stream = encoded.to_vec();
@@ -73,5 +73,108 @@ fn intel80386_operand_reads_continue_to_advance_the_stream() {
     }
     for (encoded, description) in cases_32 {
         assert_followed_by_nop(CpuType::Intel80386, SegmentSize::Segment32, encoded, description);
+    }
+}
+
+#[test]
+fn decoder_reports_position_and_eof() {
+    let mut decoder = Decoder::new(
+        &[0xB0, 0x12, 0x90][..],
+        DecoderOptions {
+            cpu: CpuType::Intel808x,
+            segment_size: SegmentSize::Segment16,
+        },
+    );
+
+    assert_eq!(decoder.position(), 0);
+    assert!(!decoder.is_eof().unwrap());
+    decoder.decode_next().unwrap();
+    assert_eq!(decoder.position(), 2);
+    decoder.decode_next().unwrap();
+    assert_eq!(decoder.position(), 3);
+    assert!(decoder.is_eof().unwrap());
+    assert!(matches!(decoder.decode_next(), Err(DecodeError::Eof)));
+    assert_eq!(decoder.position(), 3);
+}
+
+#[test]
+fn empty_input_returns_expected_eof() {
+    for cpu in [CpuType::Intel808x, CpuType::NecVx0, CpuType::Intel80386] {
+        let mut decoder = Decoder::new(
+            &[][..],
+            DecoderOptions {
+                cpu,
+                segment_size: SegmentSize::Segment16,
+            },
+        );
+
+        assert!(matches!(decoder.decode_next(), Err(DecodeError::Eof)));
+        assert_eq!(decoder.position(), 0);
+    }
+}
+
+#[test]
+fn seekable_decoder_can_reposition_relative_to_its_start() {
+    let mut input = Cursor::new([0xCC, 0xB0, 0x12, 0x90]);
+    input.set_position(1);
+    let mut decoder = Decoder::new(
+        input,
+        DecoderOptions {
+            cpu: CpuType::Intel808x,
+            segment_size: SegmentSize::Segment16,
+        },
+    );
+
+    let first = decoder.decode_next().unwrap();
+    assert_eq!(first.instruction_bytes, [0xB0, 0x12]);
+    assert_eq!(decoder.position(), 2);
+
+    decoder.rewind().unwrap();
+    assert_eq!(decoder.position(), 0);
+    assert_eq!(decoder.decode_next().unwrap().instruction_bytes, [0xB0, 0x12]);
+
+    decoder.set_position(2).unwrap();
+    assert_eq!(decoder.decode_next().unwrap().instruction_bytes, [0x90]);
+    assert_eq!(decoder.position(), 3);
+}
+
+#[test]
+fn position_remains_available_after_a_partial_decode_error() {
+    let mut decoder = Decoder::new(
+        Cursor::new([0xB8, 0x34]),
+        DecoderOptions {
+            cpu: CpuType::Intel808x,
+            segment_size: SegmentSize::Segment16,
+        },
+    );
+
+    assert!(matches!(decoder.decode_next(), Err(DecodeError::UnexpectedEof)));
+    assert_eq!(decoder.position(), 2);
+    decoder.set_position(1).unwrap();
+    assert_eq!(decoder.position(), 1);
+}
+
+#[test]
+fn truncated_prefixes_and_modrm_bytes_return_unexpected_eof() {
+    let cases: &[(CpuType, &[u8])] = &[
+        (CpuType::Intel808x, &[0xF3]),
+        (CpuType::Intel808x, &[0x00]),
+        (CpuType::NecVx0, &[0x0F]),
+        (CpuType::NecVx0, &[0x00]),
+        (CpuType::Intel80386, &[0x0F]),
+        (CpuType::Intel80386, &[0x00]),
+    ];
+
+    for (cpu, bytes) in cases {
+        let mut decoder = Decoder::new(
+            *bytes,
+            DecoderOptions {
+                cpu: *cpu,
+                segment_size: SegmentSize::Segment16,
+            },
+        );
+
+        assert!(matches!(decoder.decode_next(), Err(DecodeError::UnexpectedEof)));
+        assert!(decoder.position() > 0);
     }
 }

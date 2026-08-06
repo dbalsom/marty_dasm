@@ -193,7 +193,7 @@ impl ModRmByte32 {
     pub fn read(
         bytes: &mut impl ByteReader,
         instruction_bytes: &mut Vec<u8>,
-    ) -> Result<(ModRmByte32, Option<SibByte>), Box<dyn std::error::Error>> {
+    ) -> std::io::Result<(ModRmByte32, Option<SibByte>)> {
         let raw_modrm_byte = bytes.read_u8()?;
         let mut modrm = ModRmByte32::from_byte(raw_modrm_byte);
         instruction_bytes.push(raw_modrm_byte);

@@ -184,7 +184,7 @@ impl SibByte {
         modrm_mod: u8,
         displacement: Displacement,
         instruction_bytes: &mut Vec<u8>,
-    ) -> Result<SibByte, Box<dyn std::error::Error>> {
+    ) -> std::io::Result<SibByte> {
         let raw_sib_byte = bytes.read_u8()?;
         let mut sib = SibByte::from_byte(raw_sib_byte, modrm_mod);
         instruction_bytes.push(raw_sib_byte);

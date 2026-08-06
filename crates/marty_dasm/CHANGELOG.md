@@ -2,6 +2,11 @@
 
 ## 0.3.5 - 2026-08-06
 
+### Added
+
+- Decoder: Add byte-position reporting, EOF detection, and repositioning for seekable input streams.
+- Decoder: Distinguish expected end-of-input from an instruction truncated by unexpected EOF.
+
 ### Fixed
 
 - Decoder: Fix mistakenly carried-over uses of peek_* methods

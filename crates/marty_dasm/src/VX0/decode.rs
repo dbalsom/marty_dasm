@@ -723,7 +723,7 @@ impl NecVx0 {
                 instruction.instruction_bytes.push(byte);
                 byte
             },
-            Err(_e) => return Ok(instruction)
+            Err(error) => return Err(error.into())
         };
 
         let mut op_prefixes: u32 = 0;
@@ -746,7 +746,7 @@ impl NecVx0 {
                             instruction.instruction_bytes.push(byte);
                             byte
                         },
-                        Err(_e) => return Ok(instruction)
+                        Err(error) => return Err(error.into())
                     };
 
                     decode_idx = REGULAR_OPS_LEN;
@@ -782,7 +782,7 @@ impl NecVx0 {
                     instruction.instruction_bytes.push(byte);
                     byte
                 },
-                Err(_e) => return Ok(instruction)
+                Err(error) => return Err(error.into())
             };
         }
 
@@ -802,7 +802,7 @@ impl NecVx0 {
             let modrm_offset = instruction.instruction_bytes.len();
             let inner_modrm = match ModRmByte16::read(bytes, &mut instruction.instruction_bytes) {
                 Ok(size) => size,
-                Err(_e) => return Ok(instruction)
+                Err(error) => return Err(error.into())
             };
             displacement = inner_modrm.displacement();
             instruction.has_modrm = true;

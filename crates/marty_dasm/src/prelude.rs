@@ -25,6 +25,7 @@
 pub use crate::{
     cpu_common::{AddressSize, SegmentSize},
     decoder::{CpuType, Decoder, DecoderOptions, decode_one},
+    error::DecodeError,
     formatter::{
         DecoratorToken,
         Format,
