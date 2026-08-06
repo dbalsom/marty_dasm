@@ -22,11 +22,9 @@
 */
 use std::io::{self, BufRead};
 
-/// The [ByteReader] trait extends [BufRead] with methods for reading and peeking fixed-length
-/// little-endian values.
+/// The [ByteReader] trait extends [BufRead] with methods for reading fixed-length little-endian
+/// values.
 pub trait ByteReader: BufRead {
-    // --- reading (advances the cursor) ---
-
     /// Reads a single u8 from the stream.
     fn read_u8(&mut self) -> io::Result<u8> {
         let buf = self.fill_buf()?;
@@ -69,59 +67,8 @@ pub trait ByteReader: BufRead {
         Ok(i32::from_le_bytes(self.read_u32()?.to_le_bytes()))
     }
 
-    // --- peeking (does NOT advance the cursor) ---
-
-    /// Peeks a single u8 from the stream.
-    fn peek_u8(&mut self) -> io::Result<u8> {
-        let buf = self.fill_buf()?;
-        if buf.is_empty() {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "peek_u8(): EOF"));
-        }
-        Ok(buf[0])
-    }
-
-    /// Peeks a single i8 from the stream.
-    fn peek_i8(&mut self) -> io::Result<i8> {
-        Ok(self.peek_u8()? as i8)
-    }
-
-    /// Peeks a little-endian u16 from the stream.
-    fn peek_u16(&mut self) -> io::Result<u16> {
-        let buf = self.fill_buf()?;
-        match buf.len() {
-            n if n >= 2 => Ok(u16::from_le_bytes([buf[0], buf[1]])),
-            0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "peek_u16(): EOF")),
-            n => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("peek_u16(): insufficient bytes: {n} byte(s) buffered"),
-            )),
-        }
-    }
-
-    /// Peeks a little-endian i16 from the stream.
-    fn peek_i16(&mut self) -> io::Result<i16> {
-        Ok(i16::from_le_bytes(self.peek_u16()?.to_le_bytes()))
-    }
-
-    /// Peeks an x86 far pointer stored in memory as \[offset:u16\]\[segment:u16\] (both little-endian).
+    /// Reads a 16:16 x86 far pointer encoded as \[offset:u16\]\[segment:u16\].
     /// Returns (segment, offset).
-    fn peek_farptr16(&mut self) -> io::Result<(u16, u16)> {
-        let buf = self.fill_buf()?;
-        match buf.len() {
-            n if n >= 4 => {
-                let off = u16::from_le_bytes([buf[0], buf[1]]);
-                let seg = u16::from_le_bytes([buf[2], buf[3]]);
-                self.consume(4);
-                Ok((seg, off))
-            }
-            0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "peek_farptr16(): EOF")),
-            n => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("peek_farptr16(): insufficient bytes: {n} byte(s) buffered"),
-            )),
-        }
-    }
-
     fn read_farptr16(&mut self) -> io::Result<(u16, u16)> {
         let buf = self.fill_buf()?;
         match buf.len() {
@@ -139,6 +86,8 @@ pub trait ByteReader: BufRead {
         }
     }
 
+    /// Reads a 16:32 x86 far pointer encoded as \[offset:u32\]\[segment:u16\].
+    /// Returns (segment, offset).
     fn read_farptr32(&mut self) -> io::Result<(u16, u32)> {
         let buf = self.fill_buf()?;
         match buf.len() {
@@ -151,7 +100,7 @@ pub trait ByteReader: BufRead {
             0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "read_farptr32(): EOF")),
             n => Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("read_farptr16(): insufficient bytes: {n} byte(s) buffered"),
+                format!("read_farptr32(): insufficient bytes: {n} byte(s) buffered"),
             )),
         }
     }

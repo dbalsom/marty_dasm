@@ -138,43 +138,43 @@ impl OperandTemplate {
             OperandTemplate::Register8Encoded => Ok(OperandType::Register8(REGISTER8_LUT[(opcode & 0x07) as usize])),
             OperandTemplate::Register16Encoded => Ok(OperandType::Register16(REGISTER16_LUT[(opcode & 0x07) as usize])),
             OperandTemplate::Immediate8 => {
-                let operand = bytes.peek_u8()?;
+                let operand = bytes.read_u8()?;
                 instruction.instruction_bytes.push(operand);
                 instruction.immediate_bytes.push(operand);
                 Ok(OperandType::Immediate8(operand))
             }
             OperandTemplate::Immediate16 => {
-                let operand = bytes.peek_u16()?;
+                let operand = bytes.read_u16()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Immediate16(operand))
             }
             OperandTemplate::Immediate8SignExtended => {
-                let operand = bytes.peek_i8()?;
+                let operand = bytes.read_i8()?;
                 instruction.instruction_bytes.push(operand as u8);
                 instruction.immediate_bytes.push(operand as u8);
                 Ok(OperandType::Immediate8s(operand))
             }
             OperandTemplate::Relative8 => {
-                let operand = bytes.peek_i8()?;
+                let operand = bytes.read_i8()?;
                 instruction.instruction_bytes.push(operand as u8);
                 instruction.immediate_bytes.push(operand as u8);
                 Ok(OperandType::Relative8(operand))
             }
             OperandTemplate::Relative16 => {
-                let operand = bytes.peek_i16()?;
+                let operand = bytes.read_i16()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Relative16(operand))
             }
             OperandTemplate::Offset8 => {
-                let operand = bytes.peek_u16()?;
+                let operand = bytes.read_u16()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Offset8_16(operand))
             }
             OperandTemplate::Offset16 => {
-                let operand = bytes.peek_u16()?;
+                let operand = bytes.read_u16()?;
                 instruction.instruction_bytes.extend_from_slice(&operand.to_le_bytes());
                 instruction.immediate_bytes.extend_from_slice(&operand.to_le_bytes());
                 Ok(OperandType::Offset16_16(operand))
@@ -182,7 +182,7 @@ impl OperandTemplate {
             OperandTemplate::FixedRegister8(r8) => Ok(OperandType::Register8(*r8)),
             OperandTemplate::FixedRegister16(r16) => Ok(OperandType::Register16(*r16)),
             OperandTemplate::FarAddress => {
-                let (segment, offset) = bytes.peek_farptr16()?;
+                let (segment, offset) = bytes.read_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
 

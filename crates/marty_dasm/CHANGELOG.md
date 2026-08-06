@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 - 2026-08-06
+
+### Fixed
+
+- Decoder: Fix mistakenly carried-over uses of peek_* methods
+
 ## 0.3.4 - 2026-08-05
 
 ### Added

@@ -286,7 +286,7 @@ impl OperandTemplate {
                 false => Ok(OperandType::NoOperand),
             },
             (OperandTemplate::FarPointer, OperandSize::Operand16) => {
-                let (segment, offset) = bytes.peek_farptr16()?;
+                let (segment, offset) = bytes.read_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
 
@@ -508,7 +508,7 @@ impl OperandTemplate {
                 false => Ok(OperandType::NoOperand),
             },
             (OperandTemplate::FarPointer, OperandSize::Operand16) => {
-                let (segment, offset) = bytes.peek_farptr16()?;
+                let (segment, offset) = bytes.read_farptr16()?;
                 instruction.instruction_bytes.extend_from_slice(&offset.to_le_bytes());
                 instruction.instruction_bytes.extend_from_slice(&segment.to_le_bytes());
 
