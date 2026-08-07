@@ -4,12 +4,15 @@
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, ResizeObserver, Storage};
 
+use crate::validation::{is_valid_cpu, is_valid_offset, is_valid_segment_size};
+
 const THEME_STORAGE_KEY: &str = "marty-theme";
 const CPU_STORAGE_KEY: &str = "marty-cpu";
 const SEGMENT_SIZE_STORAGE_KEY: &str = "marty-segment-size";
 const OFFSET_STORAGE_KEY: &str = "marty-offset";
 const HEX_INPUT_STORAGE_KEY: &str = "marty-hex-input";
 const EXPAND_UNICODE_STORAGE_KEY: &str = "marty-expand-unicode";
+const COMPACT_URL_STORAGE_KEY: &str = "marty-compact-url";
 const HEX_INPUT_HEIGHT_STORAGE_KEY: &str = "marty-hex-input-height";
 const COPY_OFFSETS_STORAGE_KEY: &str = "marty-copy-offsets";
 const COPY_BYTES_STORAGE_KEY: &str = "marty-copy-bytes";
@@ -22,6 +25,7 @@ pub(crate) struct RestoreDisassemblyStateOptions {
     pub(crate) segment_size: bool,
     pub(crate) offset: bool,
     pub(crate) expand_unicode: bool,
+    pub(crate) compact_url: bool,
 }
 
 pub(crate) fn restore_theme(storage: Option<&Storage>) -> Option<String> {
@@ -43,6 +47,7 @@ pub(crate) fn restore_disassembly_state(
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
+    compact_url: &HtmlInputElement,
     options: RestoreDisassemblyStateOptions,
 ) {
     let Some(storage) = storage else {
@@ -51,14 +56,14 @@ pub(crate) fn restore_disassembly_state(
 
     if options.cpu {
         if let Ok(Some(value)) = storage.get_item(CPU_STORAGE_KEY) {
-            if matches!(value.as_str(), "intel808x" | "necvx0" | "intel80386") {
+            if is_valid_cpu(&value) {
                 cpu.set_value(&value);
             }
         }
     }
     if options.segment_size {
         if let Ok(Some(value)) = storage.get_item(SEGMENT_SIZE_STORAGE_KEY) {
-            if matches!(value.as_str(), "16" | "32") {
+            if is_valid_segment_size(&value) {
                 segment_size.set_value(&value);
             }
         }
@@ -70,8 +75,8 @@ pub(crate) fn restore_disassembly_state(
     }
     if options.offset {
         if let Ok(Some(value)) = storage.get_item(OFFSET_STORAGE_KEY) {
-            if value.len() <= 8 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-                offset.set_value(&value);
+            if is_valid_offset(&value) {
+                offset.set_value(&value.to_ascii_uppercase());
             }
         }
     }
@@ -79,6 +84,13 @@ pub(crate) fn restore_disassembly_state(
         if let Ok(Some(value)) = storage.get_item(EXPAND_UNICODE_STORAGE_KEY) {
             if matches!(value.as_str(), "true" | "false") {
                 expand_unicode.set_checked(value == "true");
+            }
+        }
+    }
+    if options.compact_url {
+        if let Ok(Some(value)) = storage.get_item(COMPACT_URL_STORAGE_KEY) {
+            if matches!(value.as_str(), "true" | "false") {
+                compact_url.set_checked(value == "true");
             }
         }
     }
@@ -91,6 +103,7 @@ pub(crate) fn persist_disassembly_state(
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
+    compact_url: &HtmlInputElement,
 ) {
     let Some(storage) = storage else {
         return;
@@ -103,6 +116,10 @@ pub(crate) fn persist_disassembly_state(
     let _ = storage.set_item(
         EXPAND_UNICODE_STORAGE_KEY,
         if expand_unicode.checked() { "true" } else { "false" },
+    );
+    let _ = storage.set_item(
+        COMPACT_URL_STORAGE_KEY,
+        if compact_url.checked() { "true" } else { "false" },
     );
 }
 

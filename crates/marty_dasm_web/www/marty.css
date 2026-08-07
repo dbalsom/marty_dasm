@@ -270,13 +270,15 @@ textarea {
   line-height: 1.5;
 }
 
-.input-editor {
-  position: relative;
+.input-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .45rem;
 }
 
-.input-editor textarea {
-  display: block;
-  padding-right: 2.75rem;
+.control .input-heading > label {
+  margin-bottom: 0;
 }
 
 .binary-info {
@@ -314,9 +316,7 @@ textarea {
 }
 
 .input-menu {
-  position: absolute;
-  top: .55rem;
-  right: .55rem;
+  position: relative;
   z-index: 10;
 }
 
@@ -369,7 +369,7 @@ textarea {
   box-shadow: 0 12px 24px rgb(16 24 40 / 16%);
 }
 
-.control .input-menu-panel .unicode-option {
+.control .input-menu-panel .input-menu-option {
   display: flex;
   align-items: center;
   gap: .4rem;
@@ -380,7 +380,7 @@ textarea {
   cursor: pointer;
 }
 
-.unicode-option input { margin: 0; }
+.input-menu-option input { margin: 0; }
 
 .offset-input {
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;

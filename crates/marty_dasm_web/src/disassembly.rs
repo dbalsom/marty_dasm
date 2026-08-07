@@ -142,11 +142,21 @@ pub(crate) fn binary_md5(bytes: &[u8]) -> String {
 
 pub(crate) fn compact_input(input: &str, expand_unicode: bool) -> Result<String, DisassemblyError> {
     let bytes = parse_input(input, expand_unicode)?;
-    Ok(bytes
-        .chunks(32)
-        .map(|line| line.iter().map(|byte| format!("{byte:02X}")).collect::<String>())
-        .collect::<Vec<_>>()
-        .join("\n"))
+    Ok(bytes.chunks(32).map(format_hex_bytes).collect::<Vec<_>>().join("\n"))
+}
+
+pub(crate) fn compact_url_input(input: &str, expand_unicode: bool) -> Result<String, DisassemblyError> {
+    parse_input(input, expand_unicode).map(|bytes| format_hex_bytes(&bytes))
+}
+
+fn format_hex_bytes(bytes: &[u8]) -> String {
+    const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX_DIGITS[(byte >> 4) as usize] as char);
+        output.push(HEX_DIGITS[(byte & 0x0F) as usize] as char);
+    }
+    output
 }
 
 pub(crate) fn disassemble(
@@ -215,17 +225,33 @@ pub(crate) fn disassemble_bytes(
                 });
                 offset = next_offset;
             }
+            Err(error) if error.is_unexpected_eof() => {
+                let remaining = &bytes[offset..];
+                let encoded = remaining
+                    .iter()
+                    .map(|byte| format!("{byte:02X}"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let data = remaining
+                    .iter()
+                    .map(|byte| format!("0x{byte:02X}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                rows.push(DisassemblyRow {
+                    offset: format!("{:08X}", base_offset.wrapping_add(offset as u32)),
+                    bytes: encoded,
+                    byte_count: remaining.len(),
+                    instruction: format!("db {data} ; Unexpected EOF"),
+                    is_error: true,
+                });
+                break;
+            }
             Err(error) => {
-                let error_message = if error.is_unexpected_eof() {
-                    "Unexpected EOF".to_owned()
-                } else {
-                    error.to_string()
-                };
                 rows.push(DisassemblyRow {
                     offset: format!("{:08X}", base_offset.wrapping_add(offset as u32)),
                     bytes: format!("{:02X}", bytes[offset]),
                     byte_count: 1,
-                    instruction: format!("db 0x{:02X} ; {error_message}", bytes[offset]),
+                    instruction: format!("db 0x{:02X} ; {error}", bytes[offset]),
                     is_error: true,
                 });
                 offset += 1;
@@ -357,6 +383,13 @@ mod tests {
     }
 
     #[test]
+    fn compacts_url_input_without_line_breaks_or_comments() {
+        let input = format!("{} ; first line\n{}", "90 ".repeat(32), "0xCC,".repeat(33));
+        let expected = format!("{}{}", "90".repeat(32), "CC".repeat(33));
+        assert_eq!(compact_url_input(&input, false), Ok(expected));
+    }
+
+    #[test]
     fn renders_disassembly() {
         let output = disassemble("90 90", "intel808x", "16", "7C00", false).unwrap();
         assert_eq!(output.len(), 2);
@@ -373,14 +406,24 @@ mod tests {
     }
 
     #[test]
-    fn recovers_one_byte_at_a_time_after_a_partial_decode_error() {
+    fn stops_after_a_partial_decode_at_eof() {
         let output = disassemble("05 34", "intel808x", "16", "0", false).unwrap();
 
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0].bytes, "05 34");
+        assert_eq!(output[0].byte_count, 2);
+        assert_eq!(output[0].instruction, "db 0x05, 0x34 ; Unexpected EOF");
+    }
+
+    #[test]
+    fn does_not_restart_inside_a_truncated_instruction() {
+        let output = disassemble("EC BB 93", "intel808x", "16", "100", false).unwrap();
+
         assert_eq!(output.len(), 2);
-        assert_eq!(output[0].bytes, "05");
-        assert_eq!(output[0].instruction, "db 0x05 ; Unexpected EOF");
-        assert_eq!(output[1].bytes, "34");
-        assert_eq!(output[1].instruction, "db 0x34 ; Unexpected EOF");
+        assert_eq!(output[0].instruction, "in al,dx");
+        assert_eq!(output[1].offset, "00000101");
+        assert_eq!(output[1].bytes, "BB 93");
+        assert_eq!(output[1].instruction, "db 0xBB, 0x93 ; Unexpected EOF");
     }
 
     #[test]

@@ -75,9 +75,8 @@
 
     <div class="control-column">
       <div class="control">
-        <label for="hex-input">Machine code</label>
-        <div class="input-editor">
-          <textarea id="hex-input" autocomplete="off" spellcheck="false" autofocus>{{ sample_bytes }}</textarea>
+        <div class="input-heading">
+          <label for="hex-input">Machine code</label>
           <details id="input-menu" class="input-menu">
             <summary aria-label="Input menu" title="Input menu">
               <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -85,10 +84,12 @@
               </svg>
             </summary>
             <div class="input-menu-panel">
-              <label class="unicode-option"><input id="expand-unicode" type="checkbox"> Expand Unicode as UTF-8</label>
+              <label class="input-menu-option"><input id="expand-unicode" type="checkbox"> Expand Unicode as UTF-8</label>
+              <label class="input-menu-option"><input id="compact-url" type="checkbox"> Compact URL</label>
             </div>
           </details>
         </div>
+        <textarea id="hex-input" autocomplete="off" spellcheck="false" autofocus>{{ sample_bytes }}</textarea>
         <aside class="binary-info" aria-label="Parsed binary information">
           <div class="binary-stats" aria-live="polite">
             <span><span class="binary-info-label">Bytes</span> <output id="binary-byte-count">—</output></span>

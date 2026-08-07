@@ -45,6 +45,7 @@ struct Ui {
     segment_size_32: HtmlOptionElement,
     offset: HtmlInputElement,
     expand_unicode: HtmlInputElement,
+    compact_url: HtmlInputElement,
     output: Element,
     status: HtmlElement,
     url_warning: HtmlElement,
@@ -71,6 +72,7 @@ impl Ui {
             segment_size_32: element(document, "segment-size-32")?,
             offset: element(document, "offset-input")?,
             expand_unicode: element(document, "expand-unicode")?,
+            compact_url: element(document, "compact-url")?,
             output: element(document, "disassembly-output")?,
             status: element(document, "status")?,
             url_warning: element(document, "url-warning")?,
@@ -196,6 +198,7 @@ impl App {
             &self.ui.segment_size,
             &self.ui.offset,
             &self.ui.expand_unicode,
+            &self.ui.compact_url,
         ) {
             self.ui.url_warning.set_hidden(url_length <= URL_WARNING_THRESHOLD);
         }
@@ -209,6 +212,7 @@ impl App {
             &self.ui.segment_size,
             &self.ui.offset,
             &self.ui.expand_unicode,
+            &self.ui.compact_url,
         );
     }
 
@@ -249,6 +253,11 @@ impl App {
     fn selection_changed(&self) {
         self.cancel_pending_uri_update();
         self.update_output();
+        self.update_uri();
+    }
+
+    fn url_option_changed(&self) {
+        self.cancel_pending_uri_update();
         self.update_uri();
     }
 
@@ -380,12 +389,14 @@ pub fn start() -> Result<(), JsValue> {
             &app.ui.segment_size,
             &app.ui.offset,
             &app.ui.expand_unicode,
+            &app.ui.compact_url,
             RestoreDisassemblyStateOptions {
                 input: !query_overrides.input,
                 cpu: !query_overrides.cpu,
                 segment_size: !query_overrides.segment_size,
                 offset: !query_overrides.offset,
                 expand_unicode: !query_overrides.expand_unicode,
+                compact_url: !query_overrides.compact_url,
             },
         );
         restore_copy_preferences(app.storage.as_ref(), &app.ui.copy_offsets, &app.ui.copy_bytes);
@@ -399,6 +410,7 @@ pub fn start() -> Result<(), JsValue> {
             &app.ui.segment_size,
             &app.ui.offset,
             &app.ui.expand_unicode,
+            &app.ui.compact_url,
         )
         .err();
     if raw_requested {
@@ -434,6 +446,9 @@ fn install_event_handlers(app: &Rc<App>) -> Result<(), JsValue> {
     })?;
     listen(&app.ui.expand_unicode, "change", app, |app, _event| {
         app.selection_changed()
+    })?;
+    listen(&app.ui.compact_url, "change", app, |app, _event| {
+        app.url_option_changed()
     })?;
     listen(&app.ui.copy_input, "click", app, |app, _event| app.copy_input())?;
     listen(&app.ui.clear_input, "click", app, |app, _event| app.clear_input())?;

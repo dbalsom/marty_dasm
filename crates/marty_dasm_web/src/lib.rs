@@ -6,6 +6,7 @@
 mod compression;
 mod disassembly;
 mod template;
+mod validation;
 
 #[cfg(target_arch = "wasm32")]
 mod bylines;

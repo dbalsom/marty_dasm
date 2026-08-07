@@ -39,6 +39,7 @@ mod tests {
         assert!(app.contains("id=\"binary-byte-count\""));
         assert!(app.contains("id=\"binary-md5\""));
         assert!(app.contains("id=\"expand-unicode\""));
+        assert!(app.contains("id=\"compact-url\""));
         assert!(app.contains("id=\"input-menu\""));
         assert!(app.contains("id=\"compact-input\""));
         // Please don't point at my repository issues if you fork this.
