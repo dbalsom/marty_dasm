@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Daniel Balsom
 
-use crate::compression::{compress_input, decompress_input, may_compress_input};
-use crate::disassembly::compact_url_input;
-use crate::validation::{is_valid_cpu, is_valid_offset, is_valid_segment_size, parse_query_flag};
+use crate::{
+    compression::{compress_input, decompress_input, may_compress_input},
+    disassembly::compact_url_input,
+    validation::{is_valid_cpu, is_valid_fpu, is_valid_offset, is_valid_segment_size, parse_query_flag},
+};
 use wasm_bindgen::JsValue;
 use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, Location, UrlSearchParams, Window};
 
@@ -11,6 +13,7 @@ use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, Location
 pub(crate) struct QueryOverrides {
     pub(crate) input: bool,
     pub(crate) cpu: bool,
+    pub(crate) fpu: bool,
     pub(crate) segment_size: bool,
     pub(crate) offset: bool,
     pub(crate) expand_unicode: bool,
@@ -40,6 +43,9 @@ impl QueryState {
         QueryOverrides {
             input: self.params.get("hex").is_some() || self.params.get("hex_gz").is_some(),
             cpu: self.cpu().is_some(),
+            // CPU links without an FPU, and obsolete/invalid FPU values, use None (ESC)
+            // instead of inheriting a saved coprocessor selection.
+            fpu: self.cpu().is_some() || self.params.get("fpu").is_some(),
             segment_size: self.segment_size().is_some(),
             offset: self.offset().is_some(),
             expand_unicode: self.expand_unicode().is_some(),
@@ -51,6 +57,7 @@ impl QueryState {
         &self,
         input: &HtmlTextAreaElement,
         cpu: &HtmlSelectElement,
+        fpu: &HtmlSelectElement,
         segment_size: &HtmlSelectElement,
         offset: &HtmlInputElement,
         expand_unicode: &HtmlInputElement,
@@ -58,6 +65,9 @@ impl QueryState {
     ) -> Result<(), JsValue> {
         if let Some(value) = self.cpu() {
             cpu.set_value(&value);
+        }
+        if let Some(value) = self.fpu() {
+            fpu.set_value(&value);
         }
         if let Some(value) = self.segment_size() {
             segment_size.set_value(&value);
@@ -74,7 +84,8 @@ impl QueryState {
         if let Some(value) = self.params.get("hex_gz") {
             input.set_value("");
             input.set_value(&decompress_input(&value).map_err(js_error)?);
-        } else if let Some(value) = self.params.get("hex") {
+        }
+        else if let Some(value) = self.params.get("hex") {
             input.set_value(&value);
         }
 
@@ -83,6 +94,10 @@ impl QueryState {
 
     fn cpu(&self) -> Option<String> {
         self.params.get("cpu").filter(|value| is_valid_cpu(value))
+    }
+
+    fn fpu(&self) -> Option<String> {
+        self.params.get("fpu").filter(|value| is_valid_fpu(value))
     }
 
     fn segment_size(&self) -> Option<String> {
@@ -106,6 +121,7 @@ pub(crate) fn update_query(
     window: &Window,
     input: &HtmlTextAreaElement,
     cpu: &HtmlSelectElement,
+    fpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
@@ -115,15 +131,16 @@ pub(crate) fn update_query(
     let original_input = input.value();
     let input_value = if compact_url.checked() {
         compact_url_input(&original_input, expand_unicode.checked()).unwrap_or(original_input)
-    } else {
+    }
+    else {
         original_input
     };
-    let plain_params = query_params(cpu, segment_size, offset, expand_unicode, compact_url)?;
+    let plain_params = query_params(cpu, fpu, segment_size, offset, expand_unicode, compact_url)?;
     plain_params.set("hex", &input_value);
     let plain_url = query_url(&location, &plain_params)?;
 
     let url = if may_compress_input(&input_value) {
-        let compressed_params = query_params(cpu, segment_size, offset, expand_unicode, compact_url)?;
+        let compressed_params = query_params(cpu, fpu, segment_size, offset, expand_unicode, compact_url)?;
         let compressed_url = compress_input(&input_value)
             .map(|encoded| {
                 compressed_params.set("hex_gz", &encoded);
@@ -132,10 +149,12 @@ pub(crate) fn update_query(
             .map_err(js_error)??;
         if compressed_url.len() < plain_url.len() {
             compressed_url
-        } else {
+        }
+        else {
             plain_url
         }
-    } else {
+    }
+    else {
         plain_url
     };
 
@@ -147,6 +166,7 @@ pub(crate) fn update_query(
 
 fn query_params(
     cpu: &HtmlSelectElement,
+    fpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
@@ -154,6 +174,7 @@ fn query_params(
 ) -> Result<UrlSearchParams, JsValue> {
     let params = UrlSearchParams::new()?;
     params.set("cpu", &cpu.value());
+    params.set("fpu", &fpu.value());
     params.set("segment", &segment_size.value());
     params.set("offset", &offset.value());
     params.set("eu", if expand_unicode.checked() { "1" } else { "0" });

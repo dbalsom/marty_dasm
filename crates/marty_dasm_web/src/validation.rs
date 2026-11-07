@@ -2,7 +2,14 @@
 // Copyright (C) 2026 Daniel Balsom
 
 pub(crate) fn is_valid_cpu(value: &str) -> bool {
-    matches!(value, "intel808x" | "necvx0" | "intel80386")
+    matches!(value, "intel808x" | "necvx0" | "intel80286" | "intel80386")
+}
+
+pub(crate) fn is_valid_fpu(value: &str) -> bool {
+    matches!(
+        value,
+        "disabled" | "intel8087" | "intel80287" | "intel80287xl" | "intel80387"
+    )
 }
 
 pub(crate) fn is_valid_segment_size(value: &str) -> bool {
@@ -26,8 +33,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn validates_fpu_values() {
+        for value in ["disabled", "intel8087", "intel80287", "intel80287xl", "intel80387"] {
+            assert!(is_valid_fpu(value));
+        }
+        for value in ["", "auto", "intel80286", "intel80487", "Intel80387"] {
+            assert!(!is_valid_fpu(value));
+        }
+    }
+
+    #[test]
     fn validates_cpu_values() {
-        for value in ["intel808x", "necvx0", "intel80386"] {
+        for value in ["intel808x", "necvx0", "intel80286", "intel80386"] {
             assert!(is_valid_cpu(value));
         }
         for value in ["", "POTATO", "Intel80386"] {

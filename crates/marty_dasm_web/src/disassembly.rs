@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Daniel Balsom
 
-use marty_dasm::{format_instruction, CpuType, Decoder, DecoderOptions, FormatOptions, SegmentSize};
+use marty_dasm::{CpuType, Decoder, DecoderOptions, FormatOptions, FpuType, SegmentSize, format_instruction};
 use std::{fmt, io::Cursor};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum WebCpu {
     Intel808x,
     NecVx0,
+    Intel80286,
     Intel80386,
 }
 
@@ -16,15 +17,17 @@ impl WebCpu {
         match value {
             "intel808x" => Ok(Self::Intel808x),
             "necvx0" => Ok(Self::NecVx0),
+            "intel80286" => Ok(Self::Intel80286),
             "intel80386" => Ok(Self::Intel80386),
             _ => Err(format!("Unknown CPU type: {value}")),
         }
     }
 
-    fn decoder_options(self, segment_size_value: &str) -> Result<DecoderOptions, String> {
+    fn decoder_options(self, segment_size_value: &str, fpu_value: &str) -> Result<DecoderOptions, String> {
         let (cpu, segment_size) = match self {
             Self::Intel808x => (CpuType::Intel808x, SegmentSize::Segment16),
             Self::NecVx0 => (CpuType::NecVx0, SegmentSize::Segment16),
+            Self::Intel80286 => (CpuType::Intel80286, SegmentSize::Segment16),
             Self::Intel80386 => {
                 let segment_size = match segment_size_value {
                     "16" => SegmentSize::Segment16,
@@ -35,8 +38,25 @@ impl WebCpu {
             }
         };
 
-        Ok(DecoderOptions { cpu, segment_size })
+        let fpu = match fpu_value {
+            "disabled" => None,
+            "intel8087" => Some(FpuType::Intel8087),
+            "intel80287" => Some(FpuType::Intel80287),
+            "intel80287xl" => Some(FpuType::Intel80287XL),
+            "intel80387" => Some(FpuType::Intel80387),
+            _ => return Err(format!("Unknown FPU type: {fpu_value}")),
+        };
+        let options = DecoderOptions { cpu, segment_size, fpu };
+        options.validate().map_err(|error| error.to_string())?;
+        Ok(options)
     }
+}
+
+/// Shared by the selector and input validation so the compatibility rules agree.
+pub(crate) fn is_compatible_fpu(cpu_value: &str, fpu_value: &str) -> bool {
+    WebCpu::parse(cpu_value)
+        .and_then(|cpu| cpu.decoder_options("16", fpu_value))
+        .is_ok()
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -85,13 +105,15 @@ pub(crate) fn parse_input(input: &str, expand_unicode: bool) -> Result<Vec<u8>, 
             if character == ',' || character.is_whitespace() {
                 append_hex_token(&hex_token, &mut bytes)?;
                 hex_token.clear();
-            } else if expand_unicode && !character.is_ascii() {
+            }
+            else if expand_unicode && !character.is_ascii() {
                 append_hex_token(&hex_token, &mut bytes)?;
                 hex_token.clear();
 
                 let mut encoded = [0; 4];
                 bytes.extend_from_slice(character.encode_utf8(&mut encoded).as_bytes());
-            } else {
+            }
+            else {
                 hex_token.push(character);
             }
         }
@@ -162,25 +184,27 @@ fn format_hex_bytes(bytes: &[u8]) -> String {
 pub(crate) fn disassemble(
     input: &str,
     cpu_value: &str,
+    fpu_value: &str,
     segment_size_value: &str,
     offset_value: &str,
     expand_unicode: bool,
 ) -> Result<Vec<DisassemblyRow>, DisassemblyError> {
     let bytes = parse_input(input, expand_unicode)?;
-    disassemble_bytes(&bytes, cpu_value, segment_size_value, offset_value)
+    disassemble_bytes(&bytes, cpu_value, fpu_value, segment_size_value, offset_value)
 }
 
 pub(crate) fn disassemble_bytes(
     bytes: &[u8],
     cpu_value: &str,
+    fpu_value: &str,
     segment_size_value: &str,
     offset_value: &str,
 ) -> Result<Vec<DisassemblyRow>, DisassemblyError> {
+    let options = WebCpu::parse(cpu_value)?.decoder_options(segment_size_value, fpu_value)?;
     if bytes.is_empty() {
         return Ok(Vec::new());
     }
 
-    let options = WebCpu::parse(cpu_value)?.decoder_options(segment_size_value)?;
     let base_offset = parse_offset(offset_value)?;
     let mut decoder = Decoder::new(Cursor::new(bytes), options);
     let mut offset = 0usize;
@@ -221,7 +245,7 @@ pub(crate) fn disassemble_bytes(
                     bytes: encoded,
                     byte_count: consumed,
                     instruction: assembly,
-                    is_error: false,
+                    is_error: !instruction.is_valid,
                 });
                 offset = next_offset;
             }
@@ -299,6 +323,129 @@ pub(crate) fn format_disassembly_text(rows: &[DisassemblyRow], include_offsets: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn coprocessor_choices_follow_cpu_compatibility() {
+        let fpus = ["disabled", "intel8087", "intel80287", "intel80287xl", "intel80387"];
+        for (cpu, allowed) in [
+            ("intel808x", [true, true, false, false, false]),
+            ("necvx0", [true, true, false, false, false]),
+            ("intel80286", [true, false, true, true, false]),
+            ("intel80386", [true, false, true, true, true]),
+        ] {
+            for (fpu, compatible) in fpus.into_iter().zip(allowed) {
+                assert_eq!(is_compatible_fpu(cpu, fpu), compatible);
+                for input in ["", "D8 C0"] {
+                    let result = disassemble(input, cpu, fpu, "16", "0", false);
+                    assert_eq!(result.is_ok(), compatible, "{cpu} {fpu} {input}");
+                    if !compatible {
+                        assert!(result.unwrap_err().to_string().contains("not compatible"));
+                    }
+                }
+            }
+        }
+        assert!(!is_compatible_fpu("unknown", "disabled"));
+        assert!(!is_compatible_fpu("intel80386", "unknown"));
+    }
+
+    #[test]
+    fn unrecognized_fpu_escapes_are_not_web_decode_errors() {
+        for (cpu, fpu) in [("intel80286", "intel80287"), ("intel80386", "intel80387")] {
+            let rows = disassemble("DB 36 34 12 D9 D1 90", cpu, fpu, "16", "100", false).unwrap();
+            assert_eq!(rows.len(), 3);
+            assert_eq!(rows[0].instruction, "esc [ds:1234h]");
+            assert_eq!(rows[1].instruction, "esc cx");
+            assert_eq!(rows[2].instruction, "nop");
+            assert_eq!(rows[2].offset, "00000106");
+            assert!(rows.iter().all(|row| !row.is_error));
+        }
+    }
+
+    #[test]
+    fn selects_a_coprocessor_independently_from_the_cpu() {
+        let bytes = "D9 FE DF E0 DF C1 90";
+        let i287 = disassemble(bytes, "intel80386", "intel80287", "16", "100", false).unwrap();
+        assert_eq!(i287[0].instruction, "esc si");
+        assert!(!i287[0].is_error);
+        assert_eq!(i287[1].instruction, "fnstsw ax");
+        assert_eq!(i287[2].instruction, "ffreep st1");
+        assert_eq!(i287[3].offset, "00000106");
+        let i387 = disassemble(bytes, "intel80386", "intel80387", "16", "100", false).unwrap();
+        assert_eq!(i387[0].instruction, "fsin");
+        assert!(i387.iter().all(|row| !row.is_error));
+        let i8087 = disassemble(bytes, "intel808x", "intel8087", "16", "100", false).unwrap();
+        assert!(
+            i8087[..2]
+                .iter()
+                .all(|row| row.instruction.starts_with("esc ") && !row.is_error)
+        );
+        assert_eq!(i8087[2].instruction, "ffreep st1");
+        let disabled = disassemble(bytes, "intel80386", "disabled", "16", "100", false).unwrap();
+        assert!(
+            disabled[..3]
+                .iter()
+                .all(|row| row.instruction.starts_with("esc ") && !row.is_error)
+        );
+    }
+
+    #[test]
+    fn selects_287xl_for_387_instructions_on_a_286() {
+        let bytes = "D9 F5 D9 FB D9 FE D9 FF DD E7 DD EF DA E9 DB E4 DB F4 DB E5 90";
+        let rows = disassemble(bytes, "intel80286", "intel80287xl", "32", "100", false).unwrap();
+        assert_eq!(
+            rows.iter().map(|row| row.instruction.as_str()).collect::<Vec<_>>(),
+            [
+                "fprem1",
+                "fsincos",
+                "fsin",
+                "fcos",
+                "fucom st7",
+                "fucomp st7",
+                "fucompp",
+                "fsetpm",
+                "frstpm",
+                "frstpm",
+                "nop",
+            ]
+        );
+        assert!(rows.iter().all(|row| !row.is_error));
+        assert_eq!(rows.last().unwrap().offset, "00000114");
+        let i287 = disassemble(bytes, "intel80286", "intel80287", "16", "100", false).unwrap();
+        assert!(i287.iter().all(|row| !row.is_error));
+        assert!(i287[..7].iter().all(|row| row.instruction.starts_with("esc ")));
+        assert!(i287[8..10].iter().all(|row| row.instruction.starts_with("esc ")));
+        assert_eq!(i287[7].instruction, "fsetpm");
+        assert_eq!(i287[10].instruction, "nop");
+    }
+
+    #[test]
+    fn renders_fpu_memory_and_wait_without_merging_instructions() {
+        let rows = disassemble(
+            "9B DB E3 67 DD 44 8D F0 66 D9 20",
+            "intel80386",
+            "intel80387",
+            "16",
+            "0",
+            false,
+        )
+        .unwrap();
+        let assembly: Vec<_> = rows.iter().map(|row| row.instruction.as_str()).collect();
+        assert_eq!(
+            assembly,
+            [
+                "wait",
+                "fninit",
+                "fld qword [ss:ebp+ecx*4-10h]",
+                "o32 fldenv [ds:bx+si]"
+            ]
+        );
+        assert_eq!(rows.iter().map(|row| row.byte_count).sum::<usize>(), 11);
+    }
+
+    #[test]
+    fn rejects_unknown_fpu_choices() {
+        assert!(disassemble("90", "intel80386", "intel80487", "16", "0", false).is_err());
+    }
 
     #[test]
     fn parses_spaced_prefixed_and_contiguous_hex() {
@@ -391,7 +538,7 @@ mod tests {
 
     #[test]
     fn renders_disassembly() {
-        let output = disassemble("90 90", "intel808x", "16", "7C00", false).unwrap();
+        let output = disassemble("90 90", "intel808x", "disabled", "16", "7C00", false).unwrap();
         assert_eq!(output.len(), 2);
         assert_eq!(output[0].offset, "00007C00");
         assert_eq!(output[0].bytes, "90");
@@ -400,14 +547,14 @@ mod tests {
 
     #[test]
     fn reports_truncated_instructions_as_unexpected_eof() {
-        let output = disassemble("05", "intel808x", "16", "0", false).unwrap();
+        let output = disassemble("05", "intel808x", "disabled", "16", "0", false).unwrap();
 
         assert_eq!(output[0].instruction, "db 0x05 ; Unexpected EOF");
     }
 
     #[test]
     fn stops_after_a_partial_decode_at_eof() {
-        let output = disassemble("05 34", "intel808x", "16", "0", false).unwrap();
+        let output = disassemble("05 34", "intel808x", "disabled", "16", "0", false).unwrap();
 
         assert_eq!(output.len(), 1);
         assert_eq!(output[0].bytes, "05 34");
@@ -417,7 +564,7 @@ mod tests {
 
     #[test]
     fn does_not_restart_inside_a_truncated_instruction() {
-        let output = disassemble("EC BB 93", "intel808x", "16", "100", false).unwrap();
+        let output = disassemble("EC BB 93", "intel808x", "disabled", "16", "100", false).unwrap();
 
         assert_eq!(output.len(), 2);
         assert_eq!(output[0].instruction, "in al,dx");
@@ -428,7 +575,7 @@ mod tests {
 
     #[test]
     fn v20_sample_disassembles_without_bad_markers() {
-        let output = disassemble("B8 34 12 05 78 56 90", "necvx0", "16", "0", false).unwrap();
+        let output = disassemble("B8 34 12 05 78 56 90", "necvx0", "disabled", "16", "0", false).unwrap();
         assert_eq!(output.len(), 3);
         assert!(output.iter().all(|row| !row.instruction.contains("(bad)")));
         assert_eq!(output[0].instruction, "mov ax,1234h");
@@ -437,10 +584,40 @@ mod tests {
     }
 
     #[test]
+    fn renders_286_instructions_with_16_bit_defaults() {
+        // A stale 386 segment setting must not affect 286 decoding.
+        for segment in ["16", "32"] {
+            let output = disassemble(
+                "B8 34 12 0F 05 F1 0F 04 90",
+                "intel80286",
+                "disabled",
+                segment,
+                "100",
+                false,
+            )
+            .unwrap();
+            let rows: Vec<_> = output
+                .iter()
+                .map(|row| (row.offset.as_str(), row.bytes.as_str(), row.instruction.as_str()))
+                .collect();
+            assert_eq!(
+                rows,
+                [
+                    ("00000100", "B8 34 12", "mov ax,1234h"),
+                    ("00000103", "0F 05", "loadall"),
+                    ("00000105", "F1 0F 04", "storeall"),
+                    ("00000108", "90", "nop"),
+                ]
+            );
+            assert!(output.iter().all(|row| !row.is_error));
+        }
+    }
+
+    #[test]
     fn segment_size_controls_386_defaults() {
         let bytes = "B8 34 12 00 00";
-        let output_16 = disassemble(bytes, "intel80386", "16", "0", false).unwrap();
-        let output_32 = disassemble(bytes, "intel80386", "32", "0", false).unwrap();
+        let output_16 = disassemble(bytes, "intel80386", "disabled", "16", "0", false).unwrap();
+        let output_32 = disassemble(bytes, "intel80386", "disabled", "32", "0", false).unwrap();
 
         assert_eq!(output_16[0].bytes, "B8 34 12");
         assert_eq!(output_16[0].instruction, "mov ax,1234h");
@@ -450,7 +627,7 @@ mod tests {
 
     #[test]
     fn formats_selected_disassembly_fields_for_copying() {
-        let rows = disassemble("90 B8 34 12", "intel808x", "16", "0", false).unwrap();
+        let rows = disassemble("90 B8 34 12", "intel808x", "disabled", "16", "0", false).unwrap();
         assert_eq!(format_disassembly_text(&rows, false, false), "nop\nmov ax,1234h");
         assert_eq!(
             format_disassembly_text(&rows, true, true),
@@ -460,7 +637,7 @@ mod tests {
 
     #[test]
     fn formatted_disassembly_never_uses_tabs() {
-        let rows = disassemble("90 B8 34 12", "intel808x", "16", "0", false).unwrap();
+        let rows = disassemble("90 B8 34 12", "intel808x", "disabled", "16", "0", false).unwrap();
         assert!(!format_disassembly_text(&rows, true, true).contains('\t'));
         assert!(!format_disassembly_text(&rows, false, true).contains('\t'));
         assert!(!format_disassembly_text(&rows, false, false).contains('\t'));

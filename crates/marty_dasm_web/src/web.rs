@@ -10,22 +10,46 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     bylines::set_random_byline,
-    disassembly::{binary_md5, compact_input, disassemble, disassemble_bytes, format_disassembly_text, parse_input},
+    disassembly::{
+        binary_md5,
+        compact_input,
+        disassemble,
+        disassemble_bytes,
+        format_disassembly_text,
+        is_compatible_fpu,
+        parse_input,
+    },
     local_storage::{
-        observe_input_height, persist_copy_preferences, persist_disassembly_state, persist_input_height, persist_theme,
-        restore_copy_preferences, restore_disassembly_state, restore_input_height, restore_theme,
         RestoreDisassemblyStateOptions,
+        observe_input_height,
+        persist_copy_preferences,
+        persist_disassembly_state,
+        persist_input_height,
+        persist_theme,
+        restore_copy_preferences,
+        restore_disassembly_state,
+        restore_input_height,
+        restore_theme,
     },
     panic_report::install_panic_hook,
-    query::{update_query, QueryState},
+    query::{QueryState, update_query},
     template::render_app,
 };
 
-use wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue};
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
-    Document, Element, Event, EventTarget, HtmlElement, HtmlInputElement, HtmlOptionElement, HtmlSelectElement,
-    HtmlTextAreaElement, Storage, Window,
+    Document,
+    Element,
+    Event,
+    EventTarget,
+    HtmlElement,
+    HtmlInputElement,
+    HtmlOptionElement,
+    HtmlSelectElement,
+    HtmlTextAreaElement,
+    Storage,
+    Window,
 };
 
 type PendingUriUpdate = RefCell<Option<(i32, Closure<dyn FnMut()>)>>;
@@ -41,6 +65,7 @@ struct Ui {
     clear_input: HtmlElement,
     compact_input: HtmlElement,
     cpu: HtmlSelectElement,
+    fpu: HtmlSelectElement,
     segment_size: HtmlSelectElement,
     segment_size_32: HtmlOptionElement,
     offset: HtmlInputElement,
@@ -49,7 +74,6 @@ struct Ui {
     output: Element,
     status: HtmlElement,
     url_warning: HtmlElement,
-    fpu_warning: HtmlElement,
     copy_offsets: HtmlInputElement,
     copy_bytes: HtmlInputElement,
     copy_disassembly: HtmlElement,
@@ -68,6 +92,7 @@ impl Ui {
             clear_input: element(document, "clear-input")?,
             compact_input: element(document, "compact-input")?,
             cpu: element(document, "cpu-select")?,
+            fpu: element(document, "fpu-select")?,
             segment_size: element(document, "segment-size-select")?,
             segment_size_32: element(document, "segment-size-32")?,
             offset: element(document, "offset-input")?,
@@ -76,7 +101,6 @@ impl Ui {
             output: element(document, "disassembly-output")?,
             status: element(document, "status")?,
             url_warning: element(document, "url-warning")?,
-            fpu_warning: element(document, "fpu-warning")?,
             copy_offsets: element(document, "copy-offsets")?,
             copy_bytes: element(document, "copy-bytes")?,
             copy_disassembly: element(document, "copy-disassembly")?,
@@ -106,7 +130,8 @@ impl App {
     fn toggle_theme(&self) {
         let next_theme = if self.ui.document_root.get_attribute("data-theme").as_deref() == Some("dark") {
             "light"
-        } else {
+        }
+        else {
             "dark"
         };
         let _ = apply_theme(&self.ui.document_root, &self.ui.theme_toggle, next_theme);
@@ -114,8 +139,26 @@ impl App {
     }
 
     fn update_output(&self) {
+        let cpu_value = self.ui.cpu.value();
+        // Preserve a compatible explicit selection; reset stale saved/shared
+        // choices or a selection invalidated by a CPU change to None (ESC).
+        if !is_compatible_fpu(&cpu_value, &self.ui.fpu.value()) {
+            self.ui.fpu.set_value("disabled");
+        }
+        for index in 0..self.ui.fpu.length() {
+            if let Some(option) = self
+                .ui
+                .fpu
+                .item(index)
+                .and_then(|item| item.dyn_into::<HtmlOptionElement>().ok())
+            {
+                let compatible = is_compatible_fpu(&cpu_value, &option.value());
+                option.set_disabled(!compatible);
+                option.set_hidden(!compatible);
+            }
+        }
         let supports_32_bit_segments = self.ui.cpu.value() == "intel80386";
-        self.ui.fpu_warning.set_hidden(!supports_32_bit_segments);
+        self.ui.segment_size.set_disabled(!supports_32_bit_segments);
         self.ui.segment_size_32.set_hidden(!supports_32_bit_segments);
         self.ui.segment_size_32.set_disabled(!supports_32_bit_segments);
         if !supports_32_bit_segments {
@@ -131,6 +174,7 @@ impl App {
                 disassemble_bytes(
                     &bytes,
                     &self.ui.cpu.value(),
+                    &self.ui.fpu.value(),
                     &self.ui.segment_size.value(),
                     &self.ui.offset.value(),
                 )
@@ -195,6 +239,7 @@ impl App {
             &self.window,
             &self.ui.input,
             &self.ui.cpu,
+            &self.ui.fpu,
             &self.ui.segment_size,
             &self.ui.offset,
             &self.ui.expand_unicode,
@@ -209,6 +254,7 @@ impl App {
             self.storage.as_ref(),
             &self.ui.input,
             &self.ui.cpu,
+            &self.ui.fpu,
             &self.ui.segment_size,
             &self.ui.offset,
             &self.ui.expand_unicode,
@@ -270,7 +316,8 @@ impl App {
     }
 
     fn compact_input(self: &Rc<Self>) {
-        let Ok(compacted) = compact_input(&self.ui.input.value(), self.ui.expand_unicode.checked()) else {
+        let Ok(compacted) = compact_input(&self.ui.input.value(), self.ui.expand_unicode.checked())
+        else {
             return;
         };
         self.ui.input.set_value(&compacted);
@@ -293,6 +340,7 @@ impl App {
         let rows = match disassemble(
             &self.ui.input.value(),
             &self.ui.cpu.value(),
+            &self.ui.fpu.value(),
             &self.ui.segment_size.value(),
             &self.ui.offset.value(),
             self.ui.expand_unicode.checked(),
@@ -329,10 +377,12 @@ impl App {
                 "error: {}",
                 error.as_string().unwrap_or_else(|| "invalid shared input".to_owned())
             )
-        } else {
+        }
+        else {
             match disassemble(
                 &self.ui.input.value(),
                 &self.ui.cpu.value(),
+                &self.ui.fpu.value(),
                 &self.ui.segment_size.value(),
                 &self.ui.offset.value(),
                 self.ui.expand_unicode.checked(),
@@ -386,6 +436,7 @@ pub fn start() -> Result<(), JsValue> {
             app.storage.as_ref(),
             &app.ui.input,
             &app.ui.cpu,
+            &app.ui.fpu,
             &app.ui.segment_size,
             &app.ui.offset,
             &app.ui.expand_unicode,
@@ -393,6 +444,7 @@ pub fn start() -> Result<(), JsValue> {
             RestoreDisassemblyStateOptions {
                 input: !query_overrides.input,
                 cpu: !query_overrides.cpu,
+                fpu: !query_overrides.fpu,
                 segment_size: !query_overrides.segment_size,
                 offset: !query_overrides.offset,
                 expand_unicode: !query_overrides.expand_unicode,
@@ -407,6 +459,7 @@ pub fn start() -> Result<(), JsValue> {
         .restore(
             &app.ui.input,
             &app.ui.cpu,
+            &app.ui.fpu,
             &app.ui.segment_size,
             &app.ui.offset,
             &app.ui.expand_unicode,
@@ -441,6 +494,7 @@ fn install_event_handlers(app: &Rc<App>) -> Result<(), JsValue> {
     listen(&app.ui.compact_input, "click", app, |app, _event| app.compact_input())?;
     listen(&app.ui.offset, "input", app, |app, _event| app.offset_changed())?;
     listen(&app.ui.cpu, "change", app, |app, _event| app.selection_changed())?;
+    listen(&app.ui.fpu, "change", app, |app, _event| app.selection_changed())?;
     listen(&app.ui.segment_size, "change", app, |app, _event| {
         app.selection_changed()
     })?;
@@ -516,7 +570,8 @@ fn apply_theme(document_root: &Element, button: &HtmlElement, theme: &str) -> Re
     document_root.set_attribute("data-theme", theme)?;
     let label = if theme == "dark" {
         "Switch to light mode"
-    } else {
+    }
+    else {
         "Switch to dark mode"
     };
     button.set_attribute("aria-label", label)?;

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Daniel Balsom
 
-use wasm_bindgen::{closure::Closure, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, ResizeObserver, Storage};
 
-use crate::validation::{is_valid_cpu, is_valid_offset, is_valid_segment_size};
+use crate::validation::{is_valid_cpu, is_valid_fpu, is_valid_offset, is_valid_segment_size};
 
 const THEME_STORAGE_KEY: &str = "marty-theme";
+const FPU_STORAGE_KEY: &str = "marty-fpu";
 const CPU_STORAGE_KEY: &str = "marty-cpu";
 const SEGMENT_SIZE_STORAGE_KEY: &str = "marty-segment-size";
 const OFFSET_STORAGE_KEY: &str = "marty-offset";
@@ -22,6 +23,7 @@ const MAX_SAVED_INPUT_HEIGHT: i32 = 4096;
 pub(crate) struct RestoreDisassemblyStateOptions {
     pub(crate) input: bool,
     pub(crate) cpu: bool,
+    pub(crate) fpu: bool,
     pub(crate) segment_size: bool,
     pub(crate) offset: bool,
     pub(crate) expand_unicode: bool,
@@ -44,13 +46,15 @@ pub(crate) fn restore_disassembly_state(
     storage: Option<&Storage>,
     input: &HtmlTextAreaElement,
     cpu: &HtmlSelectElement,
+    fpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
     compact_url: &HtmlInputElement,
     options: RestoreDisassemblyStateOptions,
 ) {
-    let Some(storage) = storage else {
+    let Some(storage) = storage
+    else {
         return;
     };
 
@@ -58,6 +62,13 @@ pub(crate) fn restore_disassembly_state(
         if let Ok(Some(value)) = storage.get_item(CPU_STORAGE_KEY) {
             if is_valid_cpu(&value) {
                 cpu.set_value(&value);
+            }
+        }
+    }
+    if options.fpu {
+        if let Ok(Some(value)) = storage.get_item(FPU_STORAGE_KEY) {
+            if is_valid_fpu(&value) {
+                fpu.set_value(&value);
             }
         }
     }
@@ -100,16 +111,19 @@ pub(crate) fn persist_disassembly_state(
     storage: Option<&Storage>,
     input: &HtmlTextAreaElement,
     cpu: &HtmlSelectElement,
+    fpu: &HtmlSelectElement,
     segment_size: &HtmlSelectElement,
     offset: &HtmlInputElement,
     expand_unicode: &HtmlInputElement,
     compact_url: &HtmlInputElement,
 ) {
-    let Some(storage) = storage else {
+    let Some(storage) = storage
+    else {
         return;
     };
 
     let _ = storage.set_item(CPU_STORAGE_KEY, &cpu.value());
+    let _ = storage.set_item(FPU_STORAGE_KEY, &fpu.value());
     let _ = storage.set_item(SEGMENT_SIZE_STORAGE_KEY, &segment_size.value());
     let _ = storage.set_item(HEX_INPUT_STORAGE_KEY, &input.value());
     let _ = storage.set_item(OFFSET_STORAGE_KEY, &offset.value());
@@ -128,7 +142,8 @@ pub(crate) fn restore_copy_preferences(
     copy_offsets: &HtmlInputElement,
     copy_bytes: &HtmlInputElement,
 ) {
-    let Some(storage) = storage else {
+    let Some(storage) = storage
+    else {
         return;
     };
 
@@ -149,7 +164,8 @@ pub(crate) fn persist_copy_preferences(
     copy_offsets: &HtmlInputElement,
     copy_bytes: &HtmlInputElement,
 ) {
-    let Some(storage) = storage else {
+    let Some(storage) = storage
+    else {
         return;
     };
 
@@ -164,7 +180,8 @@ pub(crate) fn persist_copy_preferences(
 }
 
 pub(crate) fn restore_input_height(storage: Option<&Storage>, input: &HtmlTextAreaElement) {
-    let Some(storage) = storage else {
+    let Some(storage) = storage
+    else {
         return;
     };
     let height = storage

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Daniel Balsom
 
-use minijinja::{context, Environment};
+use minijinja::{Environment, context};
 
 const APP_TEMPLATE: &str = include_str!("../templates/app.html.j2");
 
@@ -14,9 +14,17 @@ pub(crate) fn render_app() -> Result<String, minijinja::Error> {
         web_version => env!("CARGO_PKG_VERSION"),
         dasm_version => marty_dasm::VERSION,
         sample_bytes => "B8 34 12 05 78 56 90",
+        fpus => vec![
+            context! { value => "disabled", label => "None (ESC)" },
+            context! { value => "intel8087", label => "Intel 8087" },
+            context! { value => "intel80287", label => "Intel 80287" },
+            context! { value => "intel80287xl", label => "Intel 80287XL" },
+            context! { value => "intel80387", label => "Intel 80387" },
+        ],
         cpus => vec![
             context! { value => "intel808x", label => "Intel 8088 / 8086" },
             context! { value => "necvx0", label => "NEC V20 / V30" },
+            context! { value => "intel80286", label => "Intel 80286" },
             context! { value => "intel80386", label => "Intel 80386" },
         ],
     })
@@ -29,7 +37,12 @@ mod tests {
     #[test]
     fn renders_application_shell() {
         let app = render_app().unwrap();
+        assert!(app.contains("<option value=\"intel80286\">Intel 80286</option>"));
         assert!(app.contains("Intel 80386"));
+        assert!(app.contains("id=\"fpu-select\""));
+        assert!(app.contains("<option value=\"intel80287\">Intel 80287</option>"));
+        assert!(app.contains("<option value=\"intel80287xl\">Intel 80287XL</option>"));
+        assert!(!app.contains("fpu-warning"));
         assert!(app.contains("href=\"https://github.com/dbalsom\""));
         assert!(app.contains("id=\"random-byline\""));
         assert!(app.contains("id=\"share-link\""));

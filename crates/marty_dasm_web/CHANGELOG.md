@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 - 2026-11-07
+
+### Added
+
+- Add x87 disassembly with independent math coprocessor selection
+- Add Intel 80286
+
 ## 1.0.3 - 2026-08-06
 
 ### Changed

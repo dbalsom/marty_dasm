@@ -45,9 +45,6 @@
       This share link is longer than 2,000 characters and may not work in all browsers or services.
     </aside>
 
-    <aside id="fpu-warning" class="cpu-warning" role="status" hidden>
-      80386 mode currently lacks support for FPU instructions.
-    </aside>
   </div>
 
   <section class="controls" aria-label="Disassembler controls">
@@ -60,8 +57,15 @@
       </div>
 
       <div class="control">
+        <label for="fpu-select">Math coprocessor</label>
+        <select id="fpu-select">
+          {% for fpu in fpus %}<option value="{{ fpu.value }}">{{ fpu.label }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="control">
         <label for="segment-size-select">Code segment default</label>
-        <select id="segment-size-select">
+        <select id="segment-size-select" disabled>
           <option value="16">16-bit</option>
           <option id="segment-size-32" value="32" hidden disabled>32-bit</option>
         </select>

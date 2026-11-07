@@ -262,6 +262,11 @@ select,
   font: .875rem sans-serif;
 }
 
+select:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
 textarea {
   min-height: 6.5rem;
   resize: vertical;
