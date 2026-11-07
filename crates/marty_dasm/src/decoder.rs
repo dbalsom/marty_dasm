@@ -22,13 +22,16 @@
 */
 
 use crate::{
+    FpuType,
     VX0::NecVx0,
     cpu_common::SegmentSize,
     error::DecodeError,
     i808X::Intel808x,
+    i80286::Intel80286,
     i80386::Intel80386,
     instruction::Instruction,
 };
+pub use marty_dasm_common::CpuType;
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 
 struct TrackedReader<R: Read> {
@@ -39,7 +42,7 @@ struct TrackedReader<R: Read> {
 impl<R: Read> TrackedReader<R> {
     fn new(inner: R) -> Self {
         Self {
-            inner: BufReader::new(inner),
+            inner:    BufReader::new(inner),
             position: 0,
         }
     }
@@ -85,22 +88,13 @@ impl<R: Read> BufRead for TrackedReader<R> {
     }
 }
 
-/// Supported CPU families for decoding
-#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
-pub enum CpuType {
-    #[default]
-    Intel808x, // 8088/8086
-    NecVx0, // V20/V30
-    Intel8018x,
-    Intel80286,
-    Intel80386,
-}
-
 /// Options controlling decoding behavior
 #[derive(Copy, Clone, Debug)]
 pub struct DecoderOptions {
     pub cpu: CpuType,
     pub segment_size: SegmentSize,
+    /// Select a coprocessor from `cpu.compatible_fpus()`. `None` preserves generic ESC decoding.
+    pub fpu: Option<FpuType>,
 }
 
 impl Default for DecoderOptions {
@@ -108,7 +102,23 @@ impl Default for DecoderOptions {
         Self {
             cpu: CpuType::Intel808x,
             segment_size: SegmentSize::Segment16,
+            fpu: None,
         }
+    }
+}
+
+impl DecoderOptions {
+    /// Reject incompatible CPU/FPU selections without consuming input.
+    pub fn validate(&self) -> Result<(), DecodeError> {
+        if let Some(fpu) = self.fpu {
+            if !self.cpu.is_fpu_compatible(fpu) {
+                return Err(DecodeError::InvalidOptions(format!(
+                    "{fpu:?} is not compatible with {:?}",
+                    self.cpu
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -149,14 +159,22 @@ impl<R: Read> Decoder<R> {
 
     /// Decode the next instruction from the stream according to the configured CPU
     pub fn decode_next(&mut self) -> Result<Instruction, DecodeError> {
+        self.opts.validate()?;
         let instruction_start = self.position();
         let result = match self.opts.cpu {
             CpuType::Intel808x => Intel808x::decode(&mut self.reader),
             CpuType::NecVx0 => NecVx0::decode(&mut self.reader),
             CpuType::Intel8018x => unimplemented!("8018x decoding not implemented yet"),
-            CpuType::Intel80286 => unimplemented!("80286 decoding not implemented yet"),
+            CpuType::Intel80286 => Intel80286::decode(&mut self.reader),
             CpuType::Intel80386 => Intel80386::decode(&mut self.reader, self.opts.segment_size),
         };
+
+        let result = result.map(|mut instruction| {
+            if let Some(fpu) = self.opts.fpu {
+                crate::i80X87::apply(&mut instruction, fpu);
+            }
+            instruction
+        });
 
         match result {
             Err(DecodeError::Io(error)) if error.kind() == io::ErrorKind::UnexpectedEof => {

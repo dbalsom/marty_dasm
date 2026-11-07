@@ -23,11 +23,14 @@
 */
 
 use crate::{
-    cpu_common::{AddressSize, OperandSize, OperandType, PrefixFlags, Register16},
-    mnemonic::Mnemonic,
     Opcode,
     SegmentSize,
+    cpu_common::{AddressSize, OperandSize, OperandType, PrefixFlags, Register16},
+    mnemonic::Mnemonic,
 };
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Debug)]
 pub struct Instruction {
@@ -41,6 +44,8 @@ pub struct Instruction {
     pub has_modrm: bool,
     pub has_sib: bool,
     pub has_immediate: bool,
+    /// Encoded width of the first immediate field (also used for relative/moffs offsets).
+    /// For far pointers this is the offset width; `immediate_bytes` also includes the segment.
     pub immediate_size: OperandSize,
     pub has_displacement: bool,
     pub displacement_size: OperandSize,
@@ -57,6 +62,8 @@ pub struct Instruction {
     pub operand_size: OperandSize,
     pub address_size: AddressSize,
     pub mnemonic: Mnemonic,
+    /// Shared x87 metadata, absent for integer, CPU-invalid or generic ESC instructions.
+    pub fpu: Option<crate::i80X87::FpuInstruction>,
     pub segment_override: Option<Register16>,
     pub disambiguate: bool,
     pub hide_operands: bool,
@@ -92,6 +99,7 @@ impl Default for Instruction {
             operand_size: OperandSize::NoOperand,
             address_size: AddressSize::Address16,
             mnemonic: Mnemonic::default(),
+            fpu: None,
             segment_override: None,
             disambiguate: false,
             hide_operands: false,
@@ -103,6 +111,54 @@ impl Default for Instruction {
 }
 
 impl Instruction {
+    /// Record immediate metadata after all operand readers have finished.
+    pub(crate) fn record_immediates(&mut self) {
+        self.has_immediate = !self.immediate_bytes.is_empty();
+        self.immediate_size = OperandSize::NoOperand;
+        if !self.has_immediate {
+            return;
+        }
+        for operand in [self.operand1_type, self.operand2_type, self.operand3_type] {
+            self.immediate_size = match operand {
+                OperandType::Immediate8(_) | OperandType::Immediate8s(_) | OperandType::Relative8(_) => {
+                    OperandSize::Operand8
+                }
+                OperandType::Immediate16(_)
+                | OperandType::Relative16(_)
+                | OperandType::Offset8_16(_)
+                | OperandType::Offset16_16(_)
+                | OperandType::Offset32_16(_)
+                | OperandType::FarPointer16(_, _) => OperandSize::Operand16,
+                OperandType::Immediate32(_)
+                | OperandType::Relative32(_)
+                | OperandType::Offset8_32(_)
+                | OperandType::Offset16_32(_)
+                | OperandType::Offset32_32(_)
+                | OperandType::FarPointer32(_, _) => OperandSize::Operand32,
+                _ => continue,
+            };
+            break;
+        }
+    }
+
+    /// Record the bytes already consumed by the CPU's ModR/M reader.
+    pub(crate) fn record_modrm(&mut self, offset: usize, displacement: crate::cpu_common::Displacement, has_sib: bool) {
+        use crate::cpu_common::Displacement;
+        self.has_modrm = true;
+        self.modrm_offset = offset;
+        self.has_sib = has_sib;
+        self.sib_offset = if has_sib { offset + 1 } else { 0 };
+        self.has_displacement = displacement.is_some();
+        self.displacement_size = match displacement {
+            Displacement::NoDisp => OperandSize::NoOperand,
+            Displacement::Disp8(_) => OperandSize::Operand8,
+            Displacement::Disp16(_) => OperandSize::Operand16,
+            Displacement::Disp32(_) => OperandSize::Operand32,
+        };
+        let start = self.instruction_bytes.len() - displacement.len();
+        self.displacement_bytes = self.instruction_bytes[start..].to_vec();
+    }
+
     #[inline]
     pub fn has_modrm(&self) -> bool {
         self.has_modrm
@@ -157,7 +213,10 @@ impl Instruction {
         ct
     }
 
+    /// Whether an explicit operand references memory, including non-ModR/M moffs forms.
     pub fn has_memory_operand(&self) -> bool {
-        self.has_modrm && (self.operand1_type.is_memory() || self.operand2_type.is_memory())
+        [self.operand1_type, self.operand2_type, self.operand3_type]
+            .iter()
+            .any(OperandType::is_memory)
     }
 }

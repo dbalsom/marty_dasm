@@ -35,10 +35,11 @@ mod i80286;
 mod i80386;
 #[allow(non_snake_case)]
 mod i808X;
+#[allow(non_snake_case)]
+pub mod i80X87;
 mod mnemonic;
 pub mod modrm16;
 pub mod modrm32;
-mod opcode;
 pub mod prelude;
 mod sib;
 

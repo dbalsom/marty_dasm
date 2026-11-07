@@ -13,7 +13,19 @@ This crate will leverage MartyPC's internal disassembler for the 8088 and V20, a
 
 When specifying a CPU type as part of a disassembly context, marty_dasm will produce output that should exactly match what that specific CPU would decode. For the 8088 this may include several 'impossible' instruction forms that traditional disassemblers would never emit and traditional assemblers would refuse to encode.
 
-This project is still in the design phase.
+## Math Coprocessor Support
+
+`marty_dasm` 0.4.0 adds support for decoding the x87 ISA.
+
+FPU instruction decoding is implemented as a decoration pass on a decoded `ESC` instruction from one of the fixed CPU decoders, that call a shared `i80X87` decoder.
+
+The `i80X87` decoder supports the 8087, 80287, 80287XL and 80387 FPUs. When decoding, select the desired FPU with `DecoderOptions::fpu`. A list of compatible FPUs can be returned from  `CpuType::compatible_fpus()`.
+
+For example, a 386 can decode for either a 287 or a 387, and a 286 with a 287XL can decode the 387 instruction set.
+
+`DecoderOptions::fpu` is an `Option<FpuType>`: select `Some(FpuType::Intel80387)`, for example, to enable x87 decoding. The default, `None`, preserves generic `ESC` output; no FPU is selected automatically. CPU-accepted encodings unknown to the selected FPU also retain  `ESC`. Incompatible CPU/FPU options return `InvalidOptions`.
+
+
 
 ## Web interface
 

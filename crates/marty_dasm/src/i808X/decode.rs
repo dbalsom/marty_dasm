@@ -63,6 +63,7 @@ pub enum OperandTemplate {
     Register8,
     Register16,
     SegmentRegister,
+    FixedImmediate8(u8),
     Immediate8,
     Immediate16,
     Immediate8SignExtended,
@@ -103,6 +104,7 @@ impl OperandTemplate {
             OperandTemplate::Register8 => Ok(OperandType::Register8(modrm.unwrap().op2_reg8())),
             OperandTemplate::Register16 => Ok(OperandType::Register16(modrm.unwrap().op2_reg16())),
             OperandTemplate::SegmentRegister => Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16())),
+            OperandTemplate::FixedImmediate8(value) => Ok(OperandType::Immediate8(*value)),
             OperandTemplate::Immediate8 => {
                 let operand = bytes.read_u8()?;
                 instruction.instruction_bytes.push(operand);
@@ -527,23 +529,23 @@ pub const DECODE: [InstTemplate; 352] = [
     inst!( 0x83,  1, 0b0110100000000000, 0x00c,  XOR   , XOR  ,   Ot::ModRM16,                            Ot::Immediate8SignExtended),
     inst!( 0x83,  1, 0b0110100000000000, 0x00c,  CMP   , CMP  ,   Ot::ModRM16,                            Ot::Immediate8SignExtended),
     // Group
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  ROL   , ROL  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  ROR   , ROR  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  RCL   , RCL  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  RCR   , RCR  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SHL   , SHL  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SHR   , SHR  ,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SETMO , SETMO,   Ot::ModRM8,                             Ot::NoOperand),
-    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SAR   , SAR  ,   Ot::ModRM8,                             Ot::NoOperand),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  ROL   , ROL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  ROR   , ROR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  RCL   , RCL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  RCR   , RCR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SHL   , SHL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SHR   , SHR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SETMO , SETMO,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
+    inst!( 0xD0,  2, 0b0100100000000000, 0x088,  SAR   , SAR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1)),
     // Group
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  ROL   , ROL  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  ROR   , ROR  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  RCL   , RCL  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  RCR   , RCR  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SHL   , SHL  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SHR   , SHR  ,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SETMO , SETMO,   Ot::ModRM16,                            Ot::NoOperand),
-    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SAR   , SAR  ,   Ot::ModRM16,                            Ot::NoOperand),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  ROL   , ROL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  ROR   , ROR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  RCL   , RCL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  RCR   , RCR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SHL   , SHL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SHR   , SHR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SETMO , SETMO,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
+    inst!( 0xD1,  2, 0b0100100000000000, 0x088,  SAR   , SAR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1)),
     // Group
     inst!( 0xD2,  3, 0b0100100000000000, 0x08c,  ROL   , ROL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL)),
     inst!( 0xD2,  3, 0b0100100000000000, 0x08c,  ROR   , ROR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL)),
@@ -620,15 +622,12 @@ impl Intel808x {
             Err(error) => return Err(error.into())
         };
 
-        let mut op_prefixes: u32 = 0;
-        let mut op_segment_override = None;
         let mut decode_idx: usize;
 
         // Read in opcode prefixes until exhausted
         loop {
 
-            // Set flags for all prefixes encountered...
-            op_prefixes |= match opcode {
+            let flag = match opcode {
                 0x26 => PrefixFlags::ES_OVERRIDE,
                 0x2E => PrefixFlags::CS_OVERRIDE,
                 0x36 => PrefixFlags::SS_OVERRIDE,
@@ -644,13 +643,22 @@ impl Intel808x {
 
             instruction.prefix_bytes.push(opcode);
 
-            // ... but only store the last segment override prefix seen
-            op_segment_override = match opcode {
+            // Retain every prefix, but only the last segment/repeat choice is effective.
+            instruction.raw_prefix_flags |= flag;
+            let mask = if flag & PrefixFlags::SEG_OVERRIDE_MASK != 0 {
+                PrefixFlags::SEG_OVERRIDE_MASK
+            } else if flag & PrefixFlags::REP_MASK != 0 {
+                PrefixFlags::REP_MASK
+            } else {
+                0
+            };
+            instruction.effective_prefix_flags = (instruction.effective_prefix_flags & !mask) | flag;
+            instruction.segment_override = match opcode {
                 0x26 => Some(Register16::ES),
                 0x2E => Some(Register16::CS),
                 0x36 => Some(Register16::SS),
                 0x3E => Some(Register16::DS),
-                _=> op_segment_override
+                _=> instruction.segment_override
             };
 
             opcode = match bytes.read_u8() {
@@ -661,6 +669,11 @@ impl Intel808x {
                 Err(error) => return Err(error.into())
             };
         }
+
+        instruction.prefix_ct = instruction.prefix_bytes.len() as u32;
+        instruction.opcode_offset = instruction.prefix_bytes.len();
+        let opcode_value = u16::from(opcode);
+        instruction.opcode = crate::Opcode::new(opcode_value);
 
         // Lookup the opcode in the decode table
         decode_idx = opcode as usize;
@@ -680,9 +693,13 @@ impl Intel808x {
                 Err(error) => return Err(error.into())
             };
             displacement = inner_modrm.displacement();
-            instruction.has_modrm = true;
-            instruction.modrm_offset = modrm_offset;
+            instruction.record_modrm(modrm_offset, displacement, false);
 
+            if op_lu.grp != 0 || (opcode_value <= 0xFF && matches!(opcode, 0x8F | 0xC6 | 0xC7)) {
+                instruction.opcode = crate::Opcode::with_extension(opcode_value, inner_modrm.op_extension());
+                // Integer group forms have no size-defining register operand.
+                instruction.disambiguate = true;
+            }
             if op_lu.grp != 0 {
                 // Perform secondary lookup of opcode group + extension.
                 decode_idx = 256 + ((op_lu.grp as usize - 1) * 8) + inner_modrm.op_extension() as usize;
@@ -703,6 +720,8 @@ impl Intel808x {
         instruction.is_complete = true;
         instruction.mnemonic = op_lu.mnemonic;
 
+        instruction.is_valid &= instruction.mnemonic != Mnemonic::Invalid;
+        instruction.record_immediates();
         Ok(instruction)
     }
 }

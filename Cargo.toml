@@ -1,9 +1,11 @@
 [workspace]
 members = [
     "crates/marty_dasm",
+    "crates/marty_dasm_common",
     "crates/marty_dasm_web",
     "crates/marty_fuzzer",
     "crates/marty_isadb",
+    "crates/marty_isadb_gen",
 ]
 
 resolver = "2"
@@ -16,6 +18,7 @@ license = "MIT"
 repository = "https://github.com/dbalsom/marty_dasm"
 
 [workspace.dependencies]
+marty_dasm_common = { path = "crates/marty_dasm_common" }
 num-traits = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 csv = "1.3"

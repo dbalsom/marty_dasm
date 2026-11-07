@@ -94,6 +94,7 @@ pub enum OperandTemplate {
     SegmentRegister,
     Register8Encoded,
     Register16Encoded,
+    FixedImmediate8(u8),
     Immediate8,
     Immediate16,
     Immediate8SignExtended,
@@ -137,6 +138,7 @@ impl OperandTemplate {
             OperandTemplate::SegmentRegister => Ok(OperandType::Register16(modrm.unwrap().op2_segment_reg16())),
             OperandTemplate::Register8Encoded => Ok(OperandType::Register8(REGISTER8_LUT[(opcode & 0x07) as usize])),
             OperandTemplate::Register16Encoded => Ok(OperandType::Register16(REGISTER16_LUT[(opcode & 0x07) as usize])),
+            OperandTemplate::FixedImmediate8(value) => Ok(OperandType::Immediate8(*value)),
             OperandTemplate::Immediate8 => {
                 let operand = bytes.read_u8()?;
                 instruction.instruction_bytes.push(operand);
@@ -594,23 +596,23 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xC1, o, 2, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM16,                            Ot::Immediate8);
     inst!( 0xC1, o, 2, 0b0100100000000000, 0x088, SAR  ,   Ot::ModRM16,                            Ot::Immediate8);
     // Group
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::NoOperand);
-    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::NoOperand);
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, ROL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, ROR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, RCL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, RCR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
+    inst!( 0xD0, o, 3, 0b0100100000000000, 0x088, SAR  ,   Ot::ModRM8,                             Ot::FixedImmediate8(1));
     // Group
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, ROL  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, ROR  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, RCL  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, RCR  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHR  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SAR  ,   Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, ROL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, ROR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, RCL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, RCR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SHL  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
+    inst!( 0xD1, o, 3, 0b0100100000000000, 0x088, SAR  ,   Ot::ModRM16,                            Ot::FixedImmediate8(1));
     // Group
     inst!( 0xD2, o, 4, 0b0100100000000000, 0x08c, ROL   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
     inst!( 0xD2, o, 4, 0b0100100000000000, 0x08c, ROR   ,  Ot::ModRM8,                             Ot::FixedRegister8(Register8::CL));
@@ -726,17 +728,14 @@ impl NecVx0 {
             Err(error) => return Err(error.into())
         };
 
-        let mut op_prefixes: u32 = 0;
-        let mut op_segment_override = None;
         let mut decode_idx: usize = 0;
 
-        let mut op_prefix_ct = 0;
         // Read in opcode prefixes until exhausted
         loop {
-            // Set flags for all prefixes encountered...
-            op_prefixes |= match opcode {
+            let flag = match opcode {
                 0x0F => {
-                    op_prefixes |= PrefixFlags::EXTENDED_0F;
+                    instruction.raw_prefix_flags |= PrefixFlags::EXTENDED_0F;
+                    instruction.effective_prefix_flags |= PrefixFlags::EXTENDED_0F;
                     // 0F prefixed-instructions exist in table after all regular Intel instructions
                     // Nothing can follow an 0F prefix; so start instruction now. Fetching the
                     // extended opcode counts as a Subsequent write based on queue status flags.
@@ -766,15 +765,24 @@ impl NecVx0 {
                     break;
                 }
             };
-            op_prefix_ct += 1;
+            instruction.prefix_bytes.push(opcode);
 
-            // ... but only store the last segment override prefix seen
-            op_segment_override = match opcode {
+            // Retain every prefix, but only the last segment/repeat choice is effective.
+            instruction.raw_prefix_flags |= flag;
+            let mask = if flag & PrefixFlags::SEG_OVERRIDE_MASK != 0 {
+                PrefixFlags::SEG_OVERRIDE_MASK
+            } else if flag & PrefixFlags::REP_MASK != 0 {
+                PrefixFlags::REP_MASK
+            } else {
+                0
+            };
+            instruction.effective_prefix_flags = (instruction.effective_prefix_flags & !mask) | flag;
+            instruction.segment_override = match opcode {
                 0x26 => Some(Register16::ES),
                 0x2E => Some(Register16::CS),
                 0x36 => Some(Register16::SS),
                 0x3E => Some(Register16::DS),
-                _=> op_segment_override
+                _=> instruction.segment_override
             };
 
             opcode = match bytes.read_u8() {
@@ -785,6 +793,15 @@ impl NecVx0 {
                 Err(error) => return Err(error.into())
             };
         }
+
+        instruction.prefix_ct = instruction.prefix_bytes.len() as u32;
+        instruction.opcode_offset = instruction.prefix_bytes.len();
+        let opcode_value = if instruction.raw_prefix_flags & PrefixFlags::EXTENDED_0F != 0 {
+            0x0F00 | u16::from(opcode)
+        } else {
+            u16::from(opcode)
+        };
+        instruction.opcode = crate::Opcode::new(opcode_value);
 
         // Lookup the opcode in the decode table
         decode_idx += opcode as usize;
@@ -805,9 +822,13 @@ impl NecVx0 {
                 Err(error) => return Err(error.into())
             };
             displacement = inner_modrm.displacement();
-            instruction.has_modrm = true;
-            instruction.modrm_offset = modrm_offset;
+            instruction.record_modrm(modrm_offset, displacement, false);
 
+            if op_lu.grp != 0 || (opcode_value <= 0xFF && matches!(opcode, 0x8F | 0xC6 | 0xC7)) {
+                instruction.opcode = crate::Opcode::with_extension(opcode_value, inner_modrm.op_extension());
+                // Integer group forms have no size-defining register operand.
+                instruction.disambiguate = true;
+            }
             if op_lu.grp != 0 {
                 // Perform secondary lookup of opcode group + extension.
                 decode_idx = 256 + ((op_lu.grp as usize - 1) * 8) + inner_modrm.op_extension() as usize;
@@ -827,6 +848,8 @@ impl NecVx0 {
         instruction.is_complete = true;
         instruction.mnemonic = op_lu.mnemonic;
 
+        instruction.is_valid &= instruction.mnemonic != Mnemonic::Invalid;
+        instruction.record_immediates();
         Ok(instruction)
     }
 }

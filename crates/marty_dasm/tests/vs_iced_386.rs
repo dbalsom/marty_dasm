@@ -99,6 +99,7 @@ fn compare_smsw_sldt() -> Result<(), Box<dyn std::error::Error>> {
                 DecoderOptions {
                     cpu: CpuType::Intel80386,
                     segment_size,
+                    ..Default::default()
                 },
             );
             let instruction = decoder.decode_next()?;
@@ -153,6 +154,7 @@ fn compare_pushes() -> Result<(), Box<dyn std::error::Error>> {
                 DecoderOptions {
                     cpu: CpuType::Intel80386,
                     segment_size,
+                    ..Default::default()
                 },
             );
             let instruction = decoder.decode_next()?;
@@ -209,6 +211,7 @@ fn test_lar_lsl() -> Result<(), Box<dyn std::error::Error>> {
                 DecoderOptions {
                     cpu: CpuType::Intel80386,
                     segment_size,
+                    ..Default::default()
                 },
             );
             let instruction = decoder.decode_next()?;

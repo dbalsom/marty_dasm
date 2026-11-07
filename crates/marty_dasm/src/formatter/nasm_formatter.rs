@@ -22,6 +22,7 @@
     DEALINGS IN THE SOFTWARE.
 */
 use crate::{
+    SegmentSize,
     cpu_common::{
         AddressOffset16,
         AddressOffset32,
@@ -37,8 +38,8 @@ use crate::{
     formatter::{Format, FormatOptions, FormatterOutput},
     instruction::Instruction,
     mnemonic::Mnemonic,
-    SegmentSize,
 };
+
 use num_traits::PrimInt;
 use std::fmt::Display;
 
@@ -145,6 +146,12 @@ impl Format for NasmFormatter {
             else if inst.effective_prefix_flags & PrefixFlags::REP2 != 0 {
                 out.write_prefix(inst.mnemonic.rep2_prefix());
             }
+            else if inst.effective_prefix_flags & PrefixFlags::REP3 != 0 {
+                out.write_prefix("repnc");
+            }
+            else if inst.effective_prefix_flags & PrefixFlags::REP4 != 0 {
+                out.write_prefix("repc");
+            }
             out.write_separator(" ");
         }
     }
@@ -229,12 +236,7 @@ pub fn format_signed_hex_or_decimal<T: UnsignedAbsU32>(value: T) -> String {
     else {
         // hex from the *unsigned* magnitude
         let s = format!("{:X}", mag);
-        if neg {
-            format!("-{s}h")
-        }
-        else {
-            format!("+{s}h")
-        }
+        if neg { format!("-{s}h") } else { format!("+{s}h") }
     }
 }
 
@@ -303,7 +305,10 @@ impl NasmFormatter {
 
     fn operand_will_disambiguate_address_size(&self, op: OperandType) -> bool {
         match op {
-            OperandType::AddressingMode16(_, _) | OperandType::AddressingMode32(_, _) => true,
+            OperandType::AddressingMode16(_, _)
+            | OperandType::AddressingMode32(_, _)
+            | OperandType::FpuMemory16(_, _)
+            | OperandType::FpuMemory32(_, _) => true,
             OperandType::Relative8(_) | OperandType::Relative16(_) | OperandType::Relative32(_) => true,
             OperandType::Offset8_32(_)
             | OperandType::Offset8_16(_)
@@ -344,6 +349,25 @@ impl NasmFormatter {
         _opts: &FormatOptions,
         out: &mut dyn FormatterOutput,
     ) {
+        if inst.fpu.is_some() {
+            // x87 data widths are fixed by the opcode. Only environment/state
+            // instructions use the CPU's operand-size attribute.
+            if inst
+                .operand1_type
+                .fpu_memory_format()
+                .is_some_and(|format| format.is_environment_or_state())
+                && (inst.has_operand_size_override() || inst.operand_size != OperandSize::from(inst.segment_size))
+            {
+                out.write_prefix(if inst.operand_size == OperandSize::Operand32 {
+                    "o32"
+                }
+                else {
+                    "o16"
+                });
+                out.write_separator(" ");
+            }
+            return;
+        }
         let mut disambiguate = false;
         let mut flip = false;
 
@@ -425,6 +449,13 @@ impl NasmFormatter {
         operand_type: OperandType,
         out: &mut dyn FormatterOutput,
     ) {
+        if let Some(format) = operand_type.fpu_memory_format() {
+            if let Some(size) = format.nasm_size() {
+                out.write_text(size);
+                out.write_separator(" ");
+            }
+            return;
+        }
         if inst.disambiguate {
             let operand_size = match operand_type {
                 OperandType::AddressingMode16(_, size) => Some(size),
@@ -811,6 +842,9 @@ impl NasmFormatter {
             OperandType::Register32(reg) => {
                 out.write_register(&reg.to_string());
             }
+            OperandType::FpuRegister(index) => {
+                out.write_register(&format!("st{index}"));
+            }
             OperandType::ControlRegister(reg) => {
                 out.write_register(&reg.to_string());
             }
@@ -820,7 +854,7 @@ impl NasmFormatter {
             OperandType::TestRegister(reg) => {
                 out.write_register(&reg.to_string());
             }
-            OperandType::AddressingMode16(mode, _) => {
+            OperandType::AddressingMode16(mode, _) | OperandType::FpuMemory16(mode, _) => {
                 let base_register = if let Some(seg) = seg_override {
                     seg
                 }
@@ -832,7 +866,7 @@ impl NasmFormatter {
                 self.format_address_16(mode, out);
                 out.write_separator("]");
             }
-            OperandType::AddressingMode32(mode, _) => {
+            OperandType::AddressingMode32(mode, _) | OperandType::FpuMemory32(mode, _) => {
                 let base_register = if let Some(seg) = seg_override {
                     seg
                 }
@@ -876,8 +910,8 @@ mod tests {
     use std::io::Cursor;
 
     use crate::{
-        decoder::{CpuType, Decoder, DecoderOptions},
         SegmentSize,
+        decoder::{CpuType, Decoder, DecoderOptions},
     };
     #[test]
     fn format_nop_386() {
@@ -904,6 +938,7 @@ mod tests {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
         let inst = dec.decode_next().expect("decode ok");
@@ -921,6 +956,7 @@ mod tests {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment32,
+                ..Default::default()
             },
         );
         let inst = dec.decode_next().expect("decode ok");
@@ -938,6 +974,7 @@ mod tests {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment32,
+                ..Default::default()
             },
         );
         let inst = dec.decode_next().expect("decode ok");
@@ -962,6 +999,7 @@ mod tests {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
         let inst = dec.decode_next().expect("decode ok");

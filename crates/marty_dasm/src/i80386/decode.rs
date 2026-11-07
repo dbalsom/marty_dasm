@@ -34,13 +34,13 @@ use crate::{
         OperandType,
         OperandType::{AddressingMode16, AddressingMode32},
         PrefixFlags,
+        Register8,
         Register16,
         Register32,
-        Register8,
         SegmentSize,
     },
     error::DecodeError,
-    i80386::{gdr::GdrEntry, Intel80386},
+    i80386::{Intel80386, gdr::GdrEntry},
     instruction::Instruction,
     mnemonic::Mnemonic,
     modrm16::ModRmByte16,
@@ -858,14 +858,14 @@ pub static DECODE: [InstTemplate; TOTAL_OPS_LEN] = {
     inst!( 0xD6, o, 0, 0b0001_0000_0001_0000, 0x0a0, SALC,    Ot::NoOperand,                          Ot::NoOperand);
     inst!( 0xD7, o, 0, 0b0001_0000_0011_0000, 0x10c, XLAT,    Ot::NoOperand,                          Ot::NoOperand);
 
-    inst!( 0xD8, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xD9, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDA, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDB, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDC, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDD, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDE, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
-    inst!( 0xDF, o, 0, 0b0000_0000_0000_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xD8, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xD9, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDA, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDB, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDC, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDD, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDE, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
+    inst!( 0xDF, o, 0, 0b0000_0000_0010_0000, 0x108, ESC,     Ot::ModRM16,                            Ot::NoOperand);
 
     inst!( 0xE0, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPNE,  Ot::Relative8,                          Ot::LoopCounter);
     inst!( 0xE1, o, 0, 0b0000_0000_0111_0000, 0x138, LOOPE,   Ot::Relative8,                          Ot::LoopCounter);
@@ -1257,6 +1257,9 @@ impl Intel80386 {
                 }
             };
             op_prefix_ct += 1;
+            instruction.prefix_bytes.push(opcode);
+            instruction.prefix_ct = op_prefix_ct as u32;
+            instruction.raw_prefix_flags |= op_prefixes | prefix_candidates;
 
             if op_prefix_ct >= Self::PREFIX_LIMIT {
                 // Too many prefixes - abort instruction decode
@@ -1276,14 +1279,21 @@ impl Intel80386 {
 
 
 
-        // Set the segment override
+        // Set the prefix and opcode metadata before resolving operands.
         instruction.segment_override = op_segment_override;
+        instruction.opcode_offset = instruction.prefix_bytes.len();
+        let opcode_value = if op_prefixes & PrefixFlags::EXTENDED_0F != 0 {
+            0x0F00 | u16::from(opcode)
+        } else {
+            u16::from(opcode)
+        };
+        instruction.opcode = crate::Opcode::new(opcode_value);
 
         // Lookup the opcode in the decode table
         let mut decode_idx = decode_idx_base + opcode as usize;
         let mut op_lu = &DECODE[decode_idx];
 
-        instruction.raw_prefix_flags = op_prefixes | prefix_candidates;
+        instruction.raw_prefix_flags |= op_prefixes | prefix_candidates;
 
         // Address-size prefixes must be resolved before reading ModR/M. Operand-size prefixes
         // are resolved after any group lookup, when op_lu identifies the actual instruction.
@@ -1317,9 +1327,11 @@ impl Intel80386 {
                         Err(error) => return Err(error.into())
                     };
                     displacement = inner_modrm.displacement();
-                    instruction.has_modrm = true;
-                    instruction.modrm_offset = modrm_offset;
+                    instruction.record_modrm(modrm_offset, displacement, false);
 
+                    if op_lu.grp != 0 || op_lu.gdr.must_use_reg0() {
+                        instruction.opcode = crate::Opcode::with_extension(opcode_value, inner_modrm.op_extension());
+                    }
                     if op_lu.grp != 0 {
                         // Perform secondary lookup of opcode group + extension.
                         decode_idx = decode_idx_base + 256 + ((op_lu.grp as usize - 1) * 8) + inner_modrm.op_extension() as usize;
@@ -1370,9 +1382,11 @@ impl Intel80386 {
                         Err(error) => return Err(error.into())
                     };
                     displacement = inner_modrm.displacement();
-                    instruction.has_modrm = true;
-                    instruction.modrm_offset = modrm_offset;
+                    instruction.record_modrm(modrm_offset, displacement, inner_sib.is_some());
 
+                    if op_lu.grp != 0 || op_lu.gdr.must_use_reg0() {
+                        instruction.opcode = crate::Opcode::with_extension(opcode_value, inner_modrm.op_extension());
+                    }
                     if op_lu.grp != 0 {
                         // Perform secondary lookup of opcode group + extension.
                         decode_idx = decode_idx_base + 256 + ((op_lu.grp as usize - 1) * 8) + inner_modrm.op_extension() as usize;
@@ -1457,6 +1471,8 @@ impl Intel80386 {
         }
 
         instruction.disambiguate = op_lu.gdr.needs_disambiguation();
+        instruction.is_valid &= instruction.mnemonic != Mnemonic::Invalid;
+        instruction.record_immediates();
 
         //println!("Operand count: {}", instruction.operand_ct());
         // let operand_ct = instruction.operand_ct();

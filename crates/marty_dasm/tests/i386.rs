@@ -1,4 +1,4 @@
-use marty_dasm::{decoder::Decoder, format_instruction, CpuType, DecoderOptions, FormatOptions, SegmentSize};
+use marty_dasm::{CpuType, DecoderOptions, FormatOptions, SegmentSize, decoder::Decoder, format_instruction};
 
 #[test]
 fn decode_umov_386() {
@@ -15,6 +15,7 @@ fn decode_umov_386() {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
         let instruction = decoder.decode_next().expect("decode UMOV");
@@ -44,6 +45,7 @@ fn decode_test_register_moves_386() {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
         let instruction = decoder.decode_next().expect("decode test-register MOV");
@@ -68,6 +70,7 @@ fn decode_undefined_instructions_386_without_modrm() {
             DecoderOptions {
                 cpu: CpuType::Intel80386,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
         let instruction = decoder.decode_next().expect("decode undefined instruction");

@@ -298,12 +298,13 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "marty_dasm"
-version = "0.3.5"
+version = "0.4.0"
 dependencies = [
  "colored",
  "env_logger",
  "iced-x86",
  "log",
+ "marty_dasm_common",
  "marty_fuzzer",
  "num-traits",
  "rand",
@@ -313,8 +314,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "marty_dasm_common"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "marty_dasm_web"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
  "base64",
  "console_error_panic_hook",
@@ -342,12 +350,18 @@ dependencies = [
 
 [[package]]
 name = "marty_isadb"
-version = "0.3.0"
+version = "0.4.0"
+dependencies = [
+ "marty_dasm_common",
+]
+
+[[package]]
+name = "marty_isadb_gen"
+version = "0.1.0"
 dependencies = [
  "csv",
- "marty_dasm",
+ "marty_dasm_common",
  "serde",
- "thiserror",
 ]
 
 [[package]]

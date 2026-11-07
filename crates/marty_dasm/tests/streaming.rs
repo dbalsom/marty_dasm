@@ -6,7 +6,14 @@ fn assert_followed_by_nop(cpu: CpuType, segment_size: SegmentSize, encoded: &[u8
     let mut stream = encoded.to_vec();
     stream.push(0x90);
 
-    let mut decoder = Decoder::new(Cursor::new(stream), DecoderOptions { cpu, segment_size });
+    let mut decoder = Decoder::new(
+        Cursor::new(stream),
+        DecoderOptions {
+            cpu,
+            segment_size,
+            ..Default::default()
+        },
+    );
     let instruction = decoder.decode_next().expect(description);
     assert_eq!(instruction.instruction_bytes, encoded, "wrong length for {description}");
 
@@ -83,6 +90,7 @@ fn decoder_reports_position_and_eof() {
         DecoderOptions {
             cpu: CpuType::Intel808x,
             segment_size: SegmentSize::Segment16,
+            ..Default::default()
         },
     );
 
@@ -105,6 +113,7 @@ fn empty_input_returns_expected_eof() {
             DecoderOptions {
                 cpu,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
 
@@ -122,6 +131,7 @@ fn seekable_decoder_can_reposition_relative_to_its_start() {
         DecoderOptions {
             cpu: CpuType::Intel808x,
             segment_size: SegmentSize::Segment16,
+            ..Default::default()
         },
     );
 
@@ -145,6 +155,7 @@ fn position_remains_available_after_a_partial_decode_error() {
         DecoderOptions {
             cpu: CpuType::Intel808x,
             segment_size: SegmentSize::Segment16,
+            ..Default::default()
         },
     );
 
@@ -171,6 +182,7 @@ fn truncated_prefixes_and_modrm_bytes_return_unexpected_eof() {
             DecoderOptions {
                 cpu: *cpu,
                 segment_size: SegmentSize::Segment16,
+                ..Default::default()
             },
         );
 

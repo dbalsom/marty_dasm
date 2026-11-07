@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 - 2026-11-07
+
+### Added
+
+#### x87 Support
+
+- `CpuType::compatible_fpus()` and `is_fpu_compatible()`, with CPU/FPU option validation before decoding consumes bytes.
+- Shared `i80X87` decoding for 8087, 80287, 80287XL and 80387, with independent `DecoderOptions::fpu` selection, `Some(FpuType)` for a specific coprocessor and `None` (the default) for generic ESC decoding.
+
+#### 286 ISA Support
+
+- Decoder: Implement Intel 80286 decoding, including protected-mode instructions, `LOADALL` (`0F 05`), and `STOREALL` (`0F 04`, including the `F1` ICE prefix).
+
+### Fixed
+
+- Fixed 386 address-size overrides for ESC instructions and coprocessor environment/save layout selection.
+- Fixed 'repc' and 'repnc' prefixes on VX0
+
 ## 0.3.5 - 2026-08-06
 
 ### Added

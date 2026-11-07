@@ -23,7 +23,7 @@
 */
 
 pub use crate::{
-    cpu_common::{AddressSize, SegmentSize},
+    cpu_common::{AddressSize, OperandSize, OperandType, SegmentSize},
     decoder::{CpuType, Decoder, DecoderOptions, decode_one},
     error::DecodeError,
     formatter::{
@@ -38,6 +38,9 @@ pub use crate::{
         format_instruction,
         nasm_formatter::NasmFormatter,
     },
+    i80X87::{FpuInstruction, FpuMemoryFormat, FpuOperands, FpuType},
     instruction::Instruction,
-    opcode::Opcode,
+    mnemonic::Mnemonic,
 };
+
+pub use marty_dasm_common::Opcode;

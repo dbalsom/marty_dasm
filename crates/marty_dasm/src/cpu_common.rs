@@ -849,6 +849,10 @@ pub enum OperandType {
     Register8(Register8),
     Register16(Register16),
     Register32(Register32),
+    /// x87 stack register ST(0)..ST(7).
+    FpuRegister(u8),
+    FpuMemory16(AddressOffset16, crate::i80X87::FpuMemoryFormat),
+    FpuMemory32(AddressOffset32, crate::i80X87::FpuMemoryFormat),
     ControlRegister(ControlRegister),
     DebugRegister(DebugRegister),
     TestRegister(TestRegister),
@@ -862,6 +866,15 @@ pub enum OperandType {
 }
 
 impl OperandType {
+    pub fn fpu_memory_format(&self) -> Option<crate::i80X87::FpuMemoryFormat> {
+        match self {
+            Self::FpuMemory16(_, format) | Self::FpuMemory32(_, format) => Some(*format),
+            _ => None,
+        }
+    }
+
+    /// CPU scalar size. For x87 operands use `fpu_memory_format()` (or 80 bits
+    /// for an FpuRegister); their formats do not use the CPU size attribute.
     pub fn size(&self) -> OperandSize {
         match self {
             OperandType::Immediate8(_) | OperandType::Immediate8s(_) | OperandType::Relative8(_) => {
@@ -895,14 +908,14 @@ impl OperandType {
             self,
             OperandType::AddressingMode16(_, _)
                 | OperandType::AddressingMode32(_, _)
+                | OperandType::FpuMemory16(_, _)
+                | OperandType::FpuMemory32(_, _)
                 | OperandType::Offset8_16(_)
                 | OperandType::Offset8_32(_)
                 | OperandType::Offset16_16(_)
                 | OperandType::Offset16_32(_)
                 | OperandType::Offset32_16(_)
                 | OperandType::Offset32_32(_)
-                | OperandType::FarPointer16(_, _)
-                | OperandType::FarPointer32(_, _)
                 | OperandType::M16Pair(_, _)
         )
     }
@@ -911,12 +924,21 @@ impl OperandType {
     pub fn is_address(&self) -> bool {
         matches!(
             self,
-            OperandType::AddressingMode16(_, _) | OperandType::AddressingMode32(_, _)
+            OperandType::AddressingMode16(_, _)
+                | OperandType::AddressingMode32(_, _)
+                | OperandType::FpuMemory16(_, _)
+                | OperandType::FpuMemory32(_, _)
         )
     }
     #[inline(always)]
     pub fn is_register(&self) -> bool {
-        matches!(self, OperandType::Register8(_) | OperandType::Register16(_))
+        matches!(
+            self,
+            OperandType::Register8(_)
+                | OperandType::Register16(_)
+                | OperandType::Register32(_)
+                | OperandType::FpuRegister(_)
+        )
     }
 
     #[inline(always)]
